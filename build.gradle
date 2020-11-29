@@ -1,0 +1,126 @@
+plugins {
+  id 'com.github.ben-manes.versions' version '0.36.0'
+  id 'scala'
+  id 'java-library'
+  id 'java-gradle-plugin'
+  id 'maven-publish'
+  id 'com.jfrog.bintray' version '1.8.5'
+//  id 'com.gradle.plugin-publish'
+}
+
+repositories {
+  jcenter()
+  mavenCentral()
+  mavenLocal()
+}
+
+dependencies {
+  implementation 'org.scala-lang:scala-library:2.12.12'
+  implementation 'com.google.auth:google-auth-library-oauth2-http:0.22.0'
+  implementation 'com.google.api-client:google-api-client:1.31.1'
+  implementation 'com.google.apis:google-api-services-run:v1-rev20201106-1.30.10'
+  implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.12.0'
+}
+
+group = 'org.podval.tools'
+version = '0.0.1'
+description = 'Configure Google Cloud Run'
+
+final String gitHubRepository = "dubinsky/cloud-run"
+final String gitHubRepositoryUrl = "https://github.com/$gitHubRepository"
+final String orgName = 'Podval Group'
+final String orgUrl = 'http://www.podval.org'
+final List<String> projectTags = ['Gradle', 'Google', 'CloudRun']
+
+// Gradle plugin [publishing?] plugin, if it is applied, adds tasks publishPluginJar
+// and publishPluginJavaDocsJar that create sources and javadoc archives;
+// attempts to use them as artifacts in the Maven publication failed, so I make my own.
+
+task sourceJar(type: Jar) {
+  from sourceSets.main.allSource
+  archiveClassifier.set('sources')
+}
+
+gradlePlugin {
+  plugins {
+    cloudRunPlugin {
+      id = project.name
+      implementationClass = 'org.podval.tools.cloudrun.CloudRunPlugin'
+    }
+  }
+}
+
+publishing {
+  publications {
+    bintrayMavenPublication(MavenPublication) {
+      groupId    project.group
+      artifactId project.name
+      version    project.version
+
+      from components.java
+
+      artifact sourceJar
+
+      pom {
+        name = project.name
+        description = project.description
+        url = gitHubRepositoryUrl
+        scm {
+          url = gitHubRepositoryUrl
+          connection = "scm:git:git://github.com/${gitHubRepository}.git"
+          developerConnection = "scm:git:ssh://github.com/${gitHubRepository}.git"
+        }
+        licenses {
+          license {
+            name = 'The Apache Software License, Version 2.0'
+            url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+            distribution = 'repo'
+            comments = 'A business-friendly OSS license'
+          }
+        }
+        organization {
+          name = orgName
+          url = orgUrl
+        }
+        developers {
+          developer {
+            id = 'dub'
+            name = 'Leonid Dubinsky'
+            email = 'dub@podval.org'
+            url = 'http://dub.podval.org'
+            organization = orgName
+            organizationUrl = orgUrl
+            timezone = '-5'
+          }
+        }
+      }
+    }
+  }
+}
+
+bintray {
+  user         = 'dubinsky'
+  key          = findProperty('bintrayApiKey') ?: System.getenv('bintrayApiKey')
+  publications = ['bintrayMavenPublication']
+  dryRun       = false
+  publish      = true
+  override     = true
+  pkg {
+    repo                  = 'org.podval'
+    name                  = project.name
+    desc                  = project.description
+    websiteUrl            = gitHubRepositoryUrl
+    issueTrackerUrl       = "${gitHubRepositoryUrl}/issues"
+    vcsUrl                = "${gitHubRepositoryUrl}.git"
+    githubRepo            = gitHubRepository
+    licenses              = ['Apache-2.0']
+    labels                = projectTags
+    publicDownloadNumbers = true
+    // Note: there seems to be no way to supply per-module CHANGELOG.md -
+    // and package creation fails unless there is an overall one...
+    githubReleaseNotesFile= 'CHANGELOG.md'
+    version { name        = project.version }
+  }
+}
+
+//upload.dependsOn(bintrayUpload)

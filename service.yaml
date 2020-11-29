@@ -1,0 +1,63 @@
+# see https://knative.dev/docs/reference/api/serving-api/
+# see https://cloud.google.com/run/docs/how-to#configure
+#
+# gcloud beta run services replace:
+# --async | --cluster | --cluster-location | --context |
+# --kubeconfig | --namespace | --platform | --region
+#                                                         gcloud run deploy
+# --allow-unauthenticated
+# --region
+# --platform
+# --async
+# --connectivity
+# --context
+# --kubeconfig
+# --labels | --update-labels |
+# --namespace
+# --revision-suffix
+# --service-account
+# --set-cloudsql-instances
+# --set-config-maps | --update-config-maps
+# --set-secrets | --update-secrets
+# --no-traffic
+# --vpc-connector
+apiVersion: "serving.knative.dev/v1"
+kind: "Service"
+metadata:
+  name: "xxx"                                          # SERVICE parameter
+  annotations:
+    # while minScale is in beta, launch stage annotation has to be present if minScale is specified,
+    # otherwise request will be rejected with:
+    #   The feature 'minimum instances' is not supported in the declared launch stage on resource...
+    #   The launch stage annotation should be specified at least as BETA.
+    #   Please visit https://cloud.google.com/run/docs/troubleshooting#launch-stage-validation
+    #   for in-depth troubleshooting documentation.
+    # this corresponds to 'gcloud beta run deploy' as opposed to 'gcloud run deploy'
+    run.googleapis.com/launch-stage: "BETA"            # gcloud beta run deploy
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: "91"         # --min-instances
+        autoscaling.knative.dev/minScale: "1"          # --max-instances
+    spec:
+      containers:
+        - image: "gcr.io/alter-rebbe-2/collector"      # --image
+          command:                                     # --command
+            - "command"
+          args:                                        # --args
+            - "arg1"
+            - "arg2"
+          env:                                         # --set-env-vars --update-env-vars
+            - name: "environmentVariable1Name"
+              value: "environmentVariable1Value"
+            - name: "environmentVariable2Name"
+              value: "environmentVariable2Value"
+          ports:
+            - containerPort: 8080                      # --port
+          resources:
+            limits:
+              cpu: "1000m"                             # --cpu
+              memory: "256Mi"                          # --memory
+      containerConcurrency: 80                         # --concurrency
+      timeoutSeconds: 300                              # --timeout
