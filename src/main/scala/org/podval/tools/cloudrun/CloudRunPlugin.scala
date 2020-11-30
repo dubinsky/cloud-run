@@ -1,6 +1,5 @@
 package org.podval.tools.cloudrun
 
-import com.google.auth.oauth2.ServiceAccountCredentials
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.{Input, TaskAction}
 import org.gradle.api.{DefaultTask, Plugin, Project}
@@ -35,7 +34,7 @@ object CloudRunPlugin {
     @BeanProperty val serviceYamlFilePath: Property[String] = newStringProperty
 
     // Defaults
-    serviceAccountKeyProperty.set("gcloudServiceAccountKey")
+    serviceAccountKeyProperty.set(CloudRun.cloudServiceAccountKeyPropertyDefault)
     serviceYamlFilePath.set(s"${project.getProjectDir}/service.yaml")
 
     // read-only properties exposed by the extension after project evaluation
@@ -63,22 +62,23 @@ object CloudRunPlugin {
             CloudRun.key2property(key)
           )
           key
-        } else
-          Option(System.getenv(keyProperty))
-          .orElse(Option(project.findProperty(keyProperty).asInstanceOf[String]))
-          .getOrElse(throw new IllegalArgumentException(
-            "Service account key not defined" +
-            s"(looked at environment variable and property $keyProperty)"
-          ))
+        } else getProperty(keyProperty, project).getOrElse(throw new IllegalArgumentException(
+          "Service account key not defined" +
+          s"(looked at environment variable and property $keyProperty)"
+        ))
 
       // TODO throw exception if any of the config parameters are empty (or empty strings).
 
-      val service = new CloudRun(key, region.get).forServiceYaml(serviceYamlFilePath.get)
+      val service: CloudRun.ForService = new CloudRun(key, region.get).forServiceYaml(serviceYamlFilePath.get)
 
       cloudRunService.set(service)
       containerImage.set(service.containerImage)
     })
   }
+
+  private def getProperty(propertyName: String, project: Project): Option[String] =
+  Option(System.getenv(propertyName))
+    .orElse(Option(project.findProperty(propertyName).asInstanceOf[String]))
 
   abstract class ServiceTask(
     description: String,

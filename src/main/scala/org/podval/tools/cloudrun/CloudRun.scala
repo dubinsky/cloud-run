@@ -40,7 +40,8 @@ final class CloudRun(
     .namespaces().services().list(s"namespaces/$projectId")
     .execute().getItems.asScala.toList
 
-  def listServiceNames: List[String] = listServices.map(CloudRun.getServiceName)
+  def listServiceNames: List[String] =
+    listServices.map(CloudRun.getServiceName)
 
   def getService(serviceName: String): Service = client
     .namespaces().services().get(s"namespaces/$projectId/services/$serviceName")
@@ -75,12 +76,12 @@ final class CloudRun(
     replaceService(service)
   }
 
-  def replaceService(service: Service): Service = {
-    val serviceName: String = CloudRun.getServiceName(service)
-    client
-      .namespaces().services().replaceService(s"namespaces/$projectId/services/$serviceName", service)
-      .execute()
-  }
+  def replaceService(service: Service): Service =
+    replaceService(CloudRun.getServiceName(service), service)
+
+  def replaceService(serviceName: String, service: Service): Service = client
+    .namespaces().services().replaceService(s"namespaces/$projectId/services/$serviceName", service)
+    .execute()
 
   def listRevisions: List[Revision] = client
     .namespaces().revisions().list(s"namespaces/$projectId")
@@ -93,7 +94,8 @@ final class CloudRun(
   def getLatestRevision(serviceName: String): Revision =
     getRevision(getService(serviceName).getStatus.getLatestCreatedRevisionName)
 
-  def getLatestRevisionYaml(serviceName: String): String = CloudRun.json2yaml(getLatestRevision(serviceName))
+  def getLatestRevisionYaml(serviceName: String): String =
+    CloudRun.json2yaml(getLatestRevision(serviceName))
 
   // used by the GitHub Action to determine if the service exists; I do it differently.
   def exists(serviceName: String): Boolean =
@@ -109,14 +111,16 @@ final class CloudRun(
 object CloudRun {
 
   final class ForService(val run: CloudRun, val service: Service) {
-    def serviceName: String = CloudRun.getServiceName(service)
-    def containerImage: String = CloudRun.getContainerImage(service)
+    def serviceName: String = getServiceName(service)
+    def containerImage: String = getContainerImage(service)
     def getServiceYaml: String = run.getServiceYaml(serviceName)
     def deploy: Service = run.deployService(service)
     def getLatestRevisionYaml: String = run.getLatestRevisionYaml(serviceName)
   }
 
   val applicationName: String = "podval-google-cloud-run"
+
+  val cloudServiceAccountKeyPropertyDefault: String = "gcloudServiceAccountKey"
 
   def utf8: Charset = Charset.forName("UTF-8")
 
@@ -126,12 +130,12 @@ object CloudRun {
   //   https://github.com/googleapis/google-auth-library-java#google-auth-library-oauth2-http
   // (what is ServiceAccountJwtAccessCredentials.fromStream(keyStream) for?)
   def key2credentials(key: String): ServiceAccountCredentials = ServiceAccountCredentials
-    .fromStream(CloudRun.string2stream(key))
+    .fromStream(string2stream(key))
     .createScoped(CloudRunScopes.all)
     .asInstanceOf[ServiceAccountCredentials]
 
   def key2property(key: String): String = {
-    "gcloudServiceAccountKey= \\\n" ++
+    s"$cloudServiceAccountKeyPropertyDefault= \\\n" ++
       key
         .replace("\n", " \\\n")
         .replace("\\n", "\\\\n")
@@ -178,14 +182,12 @@ object CloudRun {
     result
   }
 
-  def main(args: Array[String]): Unit = {
-    val service: ForService = new CloudRun(
-      CloudRun.file2string("/home/dub/.gradle/gcloudServiceAccountKey-alter-rebbe-2.json"),
-      region = "us-east4"
-    ).forServiceYaml("service.yaml")
-
-    // println(service.getServiceYaml)
-    //    println(service.getLatestRevisionYaml)
-    println(json2yaml(service.deploy))
-  }
+//  def main(args: Array[String]): Unit = {
+//    val service: ForService = new CloudRun(
+//      file2string("/home/dub/.gradle/gcloudServiceAccountKey-alter-rebbe-2.json"),
+//      region = "us-east4"
+//    ).forServiceYaml("service.yaml")
+//
+//    println(service.getLatestRevisionYaml)
+//  }
 }
