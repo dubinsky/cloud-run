@@ -18,9 +18,11 @@ import scala.io.Source
 // inspired in part by the deploy-cloudrun GitHub Action
 //   see https://github.com/google-github-actions/deploy-cloudrun
 final class CloudRun(
-  credentials: ServiceAccountCredentials,
+  serviceAccountKey: String,
   region: String
 ) {
+  val credentials: ServiceAccountCredentials = CloudRun.key2credentials(serviceAccountKey)
+
   // using credentials with Google's HTTP clients - see
   //   https://github.com/googleapis/google-auth-library-java#using-credentials-with-google-http-client
   private val client: GoogleCloudRun = new GoogleCloudRun.Builder(
@@ -93,6 +95,7 @@ final class CloudRun(
 
   def getLatestRevisionYaml(serviceName: String): String = CloudRun.json2yaml(getLatestRevision(serviceName))
 
+  // used by the GitHub Action to determine if the service exists; I do it differently.
   def exists(serviceName: String): Boolean =
     listServiceNames.contains(serviceName)
 
@@ -177,7 +180,7 @@ object CloudRun {
 
   def main(args: Array[String]): Unit = {
     val service: ForService = new CloudRun(
-      CloudRun.key2credentials(CloudRun.file2string("/home/dub/.gradle/gcloudServiceAccountKey-alter-rebbe-2.json")),
+      CloudRun.file2string("/home/dub/.gradle/gcloudServiceAccountKey-alter-rebbe-2.json"),
       region = "us-east4"
     ).forServiceYaml("service.yaml")
 

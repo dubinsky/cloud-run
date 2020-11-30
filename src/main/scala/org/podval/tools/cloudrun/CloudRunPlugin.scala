@@ -28,13 +28,14 @@ object CloudRunPlugin {
 
   class Extension(project: Project) {
 
-    @BeanProperty val serviceAccountKey: Property[String] = newStringProperty
+    @BeanProperty val serviceAccountKeyProperty: Property[String] = newStringProperty
 
     @BeanProperty val region: Property[String] = newStringProperty
 
     @BeanProperty val serviceYamlFilePath: Property[String] = newStringProperty
 
     // Defaults
+    serviceAccountKeyProperty.set("gcloudServiceAccountKey")
     serviceYamlFilePath.set(s"${project.getProjectDir}/service.yaml")
 
     // read-only properties exposed by the extension after project evaluation
@@ -53,19 +54,26 @@ object CloudRunPlugin {
     private def newStringProperty: Property[String] = project.getObjects.property(classOf[String])
 
     project.afterEvaluate((project: Project) => {
-      val key: String = serviceAccountKey.get
-      val credentials: ServiceAccountCredentials =
-        if (!key.startsWith("/")) CloudRun.key2credentials(key) else {
-          val keyFromFile: String = CloudRun.file2string(key)
-          val result: ServiceAccountCredentials = CloudRun.key2credentials(keyFromFile)
+      val keyProperty: String = serviceAccountKeyProperty.get
+      val key: String =
+        if (keyProperty.startsWith("/")) {
+          val key: String = CloudRun.file2string(keyProperty)
           project.getLogger.lifecycle(
             "Add the following property to your .gradle/gradle.properties file:\n" +
-            CloudRun.key2property(keyFromFile)
+            CloudRun.key2property(key)
           )
-          result
-        }
+          key
+        } else
+          Option(System.getenv(keyProperty))
+          .orElse(Option(project.findProperty(keyProperty).asInstanceOf[String]))
+          .getOrElse(throw new IllegalArgumentException(
+            "Service account key not defined" +
+            s"(looked at environment variable and property $keyProperty)"
+          ))
 
-      val service = new CloudRun(credentials, region.get).forServiceYaml(serviceYamlFilePath.get)
+      // TODO throw exception if any of the config parameters are empty (or empty strings).
+
+      val service = new CloudRun(key, region.get).forServiceYaml(serviceYamlFilePath.get)
 
       cloudRunService.set(service)
       containerImage.set(service.containerImage)

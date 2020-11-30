@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.3] - 2020-11-29
+- name of the key property is configured instead of the key itself;
+
 ## [0.0.2] - 2020-11-29
 - make compatible with JIB;
 - configure publishing to the Gradle Plugin Portal;

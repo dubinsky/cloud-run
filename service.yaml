@@ -5,26 +5,26 @@
 # --async | --cluster | --cluster-location | --context |
 # --kubeconfig | --namespace | --platform | --region
 #                                                         gcloud run deploy
-# --allow-unauthenticated
 # --region
-# --platform
-# --async
-# --connectivity
+# --allow-unauthenticated
 # --context
 # --kubeconfig
-# --labels | --update-labels |
 # --namespace
 # --revision-suffix
-# --service-account
-# --set-cloudsql-instances
-# --set-config-maps | --update-config-maps
-# --set-secrets | --update-secrets
 # --no-traffic
-# --vpc-connector
+#
+# not via YAML or not on fully managed:
+# --set-cloudsql-instances - not via YAML
+# --set-config-maps - not on fully managed
+# --set-secrets
+# --platform
+# --connectivity
 apiVersion: "serving.knative.dev/v1"
 kind: "Service"
 metadata:
   name: "xxx"                                          # SERVICE parameter
+  #labels:
+  #  LABEL: 'VALUE'                                    # --labels
   annotations:
     # while minScale is in beta, launch stage annotation has to be present if minScale is specified,
     # otherwise request will be rejected with:
@@ -40,7 +40,9 @@ spec:
       annotations:
         autoscaling.knative.dev/maxScale: "91"         # --min-instances
         autoscaling.knative.dev/minScale: "1"          # --max-instances
+        #run.googleapis.com/vpc-access-connector: CONNECTOR_NAME # --vpc-connector
     spec:
+      #serviceAccountName: ....                        # --service-account
       containers:
         - image: "gcr.io/alter-rebbe-2/collector"      # --image
           command:                                     # --command
@@ -48,7 +50,7 @@ spec:
           args:                                        # --args
             - "arg1"
             - "arg2"
-          env:                                         # --set-env-vars --update-env-vars
+          env:                                         # --set-env-vars
             - name: "environmentVariable1Name"
               value: "environmentVariable1Value"
             - name: "environmentVariable2Name"
@@ -58,6 +60,14 @@ spec:
           resources:
             limits:
               cpu: "1000m"                             # --cpu
+              # For Cloud Run (fully managed), specify the value 1, 2, or 4 VCPUs.
+              # (Note that using 4 vCPUs requires you to use a minimum of 2 GiB memory.).
+              # For Cloud Run for Anthos, specify a value in Kubernetes CPU units.
+              # For example, specify 1 for 1 CPU, 400m for 0.4 CPU, and so forth.
               memory: "256Mi"                          # --memory
+              # The format is a fixed or floating point number followed by a unit: G, M, or K
+              # corresponding to gigabyte, megabyte, or kilobyte, respectively,
+              # or use the power-of-two equivalents: Gi, Mi, Ki
+              # corresponding to gibibyte, mebibyte or kibibyte respectively.
       containerConcurrency: 80                         # --concurrency
       timeoutSeconds: 300                              # --timeout

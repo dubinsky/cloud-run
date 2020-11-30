@@ -19,30 +19,27 @@ plugins {
 
 ```groovy
 cloudRun {
-  serviceAccountKey =
-    findProperty('gcloudServiceAccountKey') ?:
-    System.getenv('gcloudServiceAccountKey')
+  serviceAccountKeyProperty = 'gcloudServiceAccountKey'
   region = 'us-east4'
   serviceYamlFilePath = "$getProjectDir/service.yaml"
 }
 ```
 
-#### Service Account Key ####
+#### Service Account Key Property ####
 
-Parameter `serviceAccountKey` contains the JSON key for the service
-account to be used for deployment. It must be configured.
+Parameter `serviceAccountKeyProperty` names the environment variable and Gradle
+property that contains the JSON key for the service
+account to be used for deployment.
 
-When running locally, this normally is a value of a property
+When running locally, the key will be retrieved from a property
 defined in `~/.gradle/gradle.properties`; when running in
 Continuous Integration environment (e.g., GitHub Actions),
 it is retrieved from a secret configured in that environment
-and passed to the build in an environment variable.
-Example above shows how this parameter can be configured
-for both local and CI environments (with `gcloudServiceAccountKey`
-assumed to be the name of both the Gradle property and the environment
-variable supplied by the CI environment).
+and passed to the build in an environment variable with the same name;
+it is this name that this parameter configures.
+It defaults to `gcloudServiceAccountKey`.
 
-To help setting the Gradle property, plugin outputs the
+To help configuring the Gradle property, plugin outputs the
 (appropriately quoted and encoded) property file snippet
 if this parameter is set to an absolute path to the file with the JSON
 key. 
@@ -73,17 +70,9 @@ revision was created, Google Cloud Run will (correctly) not create a new revisio
 It also creates two help tasks that retrieve the YAML for the service and
 its latest revision respectively: `cloudRunGetServiceYaml` and `cloudRunGetLatestRevisionYaml`.
 
-
 ## Motivation ##
-## Instructions ##
+
 ## Differences from gcloud run ##
+
 ## Technical notes ##
 
-## TODO ##
-- instead of the key, configure the name of the property; default it;
-  expose the key on the extension;
-- get Bintray approval
-- add Gradle Plugin Portal setup
-- get Gradle Plugin Portal approval
-- get the log of the replace request
-- file an issue with JIB to make image name a property
