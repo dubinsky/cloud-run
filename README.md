@@ -19,8 +19,8 @@ plugins {
 
 ```groovy
 cloudRun {
-  serviceAccountKeyProperty = 'gcloudServiceAccountKey'
   region = 'us-east4'
+  serviceAccountKeyProperty = 'gcloudServiceAccountKey'
   serviceYamlFilePath = "$getProjectDir/service.yaml"
 }
 ```
@@ -72,7 +72,23 @@ its latest revision respectively: `cloudRunGetServiceYaml` and `cloudRunGetLates
 
 ## Motivation ##
 
+TODO
+
 ## Differences from gcloud run ##
+
+TODO
+
+deploy.doLast {
+  exec {
+    standardInput new ByteArrayInputStream(gcloudServiceAccountKey.getBytes('UTF-8'))
+    commandLine 'gcloud', 'auth', 'activate-service-account', '--key-file', '-'
+  }
+
+  exec {
+    commandLine 'gcloud', 'beta', 'run', 'services', 'replace', "$projectDir/service.yaml"
+  }
+}
+
 
 ## Technical notes ##
 

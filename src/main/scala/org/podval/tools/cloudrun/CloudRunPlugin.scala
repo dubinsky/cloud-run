@@ -26,11 +26,8 @@ object CloudRunPlugin {
   // Classes are not final so that Gradle could create decorated instances.
 
   class Extension(project: Project) {
-
     @BeanProperty val serviceAccountKeyProperty: Property[String] = newStringProperty
-
     @BeanProperty val region: Property[String] = newStringProperty
-
     @BeanProperty val serviceYamlFilePath: Property[String] = newStringProperty
 
     // Defaults
@@ -41,18 +38,19 @@ object CloudRunPlugin {
 
     private val cloudRunService: Property[CloudRun.ForService] =
       project.getObjects.property(classOf[CloudRun.ForService])
-
     def getCloudRunService: Property[CloudRun.ForService] = cloudRunService
 
     private val containerImage: Property[String] = newStringProperty
-
-    // jib.to.image property is used at evaluation time,
-    // so I can't reuse the one exposed on the extension to set it...
     def getContainerImage: Property[String] = containerImage
+
+    private val serviceAccountKey: Property[String] = newStringProperty
+    def getServiceAccountKey: Property[String] = serviceAccountKey
 
     private def newStringProperty: Property[String] = project.getObjects.property(classOf[String])
 
     project.afterEvaluate((project: Project) => {
+      // TODO throw exception if any of the config parameters are empty (or empty strings).
+
       val keyProperty: String = serviceAccountKeyProperty.get
       val key: String =
         if (keyProperty.startsWith("/")) {
@@ -67,12 +65,14 @@ object CloudRunPlugin {
           s"(looked at environment variable and property $keyProperty)"
         ))
 
-      // TODO throw exception if any of the config parameters are empty (or empty strings).
-
-      val service: CloudRun.ForService = new CloudRun(key, region.get).forServiceYaml(serviceYamlFilePath.get)
+      val service: CloudRun.ForService = new CloudRun.ForService(
+        new CloudRun(key, region.get),
+        serviceYamlFilePath.get
+      )
 
       cloudRunService.set(service)
       containerImage.set(service.containerImage)
+      serviceAccountKey.set(key)
     })
   }
 

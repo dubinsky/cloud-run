@@ -18,8 +18,8 @@ import scala.io.Source
 // inspired in part by the deploy-cloudrun GitHub Action
 //   see https://github.com/google-github-actions/deploy-cloudrun
 final class CloudRun(
-  serviceAccountKey: String,
-  region: String
+  val serviceAccountKey: String,
+  val region: String
 ) {
   val credentials: ServiceAccountCredentials = CloudRun.key2credentials(serviceAccountKey)
 
@@ -100,17 +100,12 @@ final class CloudRun(
   // used by the GitHub Action to determine if the service exists; I do it differently.
   def exists(serviceName: String): Boolean =
     listServiceNames.contains(serviceName)
-
-  def forService(service: Service): CloudRun.ForService =
-    new CloudRun.ForService(this, service)
-
-  def forServiceYaml(serviceYamlFilePath: String): CloudRun.ForService =
-    forService(CloudRun.parseServiceYaml(serviceYamlFilePath))
 }
 
 object CloudRun {
 
-  final class ForService(val run: CloudRun, val service: Service) {
+  final class ForService(run: CloudRun, serviceYamlFilePath: String) {
+    private val service: Service = parseServiceYaml(serviceYamlFilePath)
     def serviceName: String = getServiceName(service)
     def containerImage: String = getContainerImage(service)
     def getServiceYaml: String = run.getServiceYaml(serviceName)
@@ -183,10 +178,13 @@ object CloudRun {
   }
 
 //  def main(args: Array[String]): Unit = {
-//    val service: ForService = new CloudRun(
-//      file2string("/home/dub/.gradle/gcloudServiceAccountKey-alter-rebbe-2.json"),
-//      region = "us-east4"
-//    ).forServiceYaml("service.yaml")
+//    val service: ForService = new ForService(
+//      new CloudRun(
+//        file2string("/home/dub/.gradle/gcloudServiceAccountKey.json"),
+//        region = "us-east4"
+//      ),
+//      "service.yaml"
+//    )
 //
 //    println(service.getLatestRevisionYaml)
 //  }
