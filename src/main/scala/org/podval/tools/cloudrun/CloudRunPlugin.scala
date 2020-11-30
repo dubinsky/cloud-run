@@ -4,6 +4,7 @@ import org.gradle.api.provider.{Property, Provider}
 import org.gradle.api.tasks.{Input, TaskAction}
 import org.gradle.api.{DefaultTask, Plugin, Project}
 import scala.beans.BeanProperty
+import com.google.cloud.tools.jib.gradle.{AuthParameters, JibExtension, TargetImageParameters}
 
 final class CloudRunPlugin extends Plugin[Project] {
 
@@ -11,12 +12,54 @@ final class CloudRunPlugin extends Plugin[Project] {
     val extension: CloudRunPlugin.Extension =
       project.getExtensions.create("cloudRun", classOf[CloudRunPlugin.Extension], project)
 
-    def wireTask[T <: CloudRunPlugin.ServiceTask](name: String, clazz: Class[T]): Unit =
-      project.getTasks.create[T](name, clazz).cloudRunService.set(extension.getCloudRunService)
+    def wireTask[T <: CloudRunPlugin.ServiceTask](name: String, clazz: Class[T]): T = {
+      val result: T = project.getTasks.create[T](name, clazz)
+      result.cloudRunService.set(extension.getCloudRunService)
+      result
+    }
 
-    wireTask("cloudRunDeploy", classOf[CloudRunPlugin.DeployTask])
+    val deployTask: CloudRunPlugin.DeployTask =
+      wireTask("cloudRunDeploy", classOf[CloudRunPlugin.DeployTask])
+
     wireTask("cloudRunGetServiceYaml", classOf[CloudRunPlugin.GetServiceYamlTask])
     wireTask("cloudRunGetLatestRevisionYaml", classOf[CloudRunPlugin.GetLatestRevisionYamlTask])
+
+    project.afterEvaluate((project: Project) => afterEvaluate(project, extension, deployTask))
+  }
+
+  private def afterEvaluate(
+    project: Project,
+    extension: CloudRunPlugin.Extension,
+    deployTask: CloudRunPlugin.DeployTask
+  ): Unit = {
+    def log(message: String): Unit = project.getLogger.info(message, null, null, null)
+
+    // Extension with the name 'jib' is assumed to be created by the
+    // [JIB plugin](https://github.com/GoogleContainerTools/jib)
+    // and be of the type com.google.cloud.tools.jib.gradle.JibExtension;
+    // task 'jib' is assumed to belong to JIB plugin also.
+    Option(project.getExtensions.findByName("jib")).map(_.asInstanceOf[JibExtension]).foreach { jibExtension =>
+      val to: TargetImageParameters = jibExtension.getTo
+      if (to.getImage == null) {
+        to.setImage(extension.getContainerImage)
+        log("CloudRun: configured 'jib.to.image'.")
+      }
+      val auth: AuthParameters = to.getAuth
+      if (auth.getUsername == null) {
+        auth.setUsername("_json_key")
+        log("CloudRun: configured 'jib.to.auth.username'.")
+      }
+      if (auth.getPassword == null) {
+        // TODO if JIB ever makes password into a Propertys instead of just String
+        // (see https://github.com/GoogleContainerTools/jib/issues/2905),
+        // we won't have to force computation here with the `.get()`...
+        auth.setPassword(extension.getServiceAccountKey.get)
+        log("CloudRun: configured 'jib.to.auth.password'.")
+      }
+    }
+
+    Option(project.getTasks.findByPath("jib"))
+      .foreach(jibTask => deployTask.dependsOn(jibTask))
   }
 }
 
@@ -71,18 +114,6 @@ object CloudRunPlugin {
       val result: String = property.get()
       if (result.isEmpty) throw new IllegalArgumentException(s"$name is not set!")
       result
-    }
-
-    // Extension with the name 'jib' is assumed to be created by the
-    // [JIB plugin](https://github.com/GoogleContainerTools/jib)
-    // and be of the type com.google.cloud.tools.jib.gradle.JibExtension
-    project.afterEvaluate((project: Project) =>
-      Option(project.getExtensions.findByName("jib")).foreach(configureJib)
-    )
-
-    // MixInExtensibleDynamicObject
-    private def configureJib(jib: AnyRef): Unit = {
-      // TODO is there a way to set properties on the extension without linking JIB classes in?
     }
   }
 

@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.6] - 2020-11-30
+- JIB auto-configuration (jib.to.image, jib.to.auth.username, jib.to.auth.password);
+- cloudRunDeploy.dependsOn('jib');
+
 ## [0.0.5] - 2020-11-30
 - made properties exposed by the 'cloudRun' extension lazy to avoid plugin application order issues;
 - working on configuring 'jib' extension;
