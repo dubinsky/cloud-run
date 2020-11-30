@@ -1,6 +1,6 @@
 package org.podval.tools.cloudrun
 
-import org.gradle.api.provider.Property
+import org.gradle.api.provider.{Property, Provider}
 import org.gradle.api.tasks.{Input, TaskAction}
 import org.gradle.api.{DefaultTask, Plugin, Project}
 import scala.beans.BeanProperty
@@ -26,59 +26,65 @@ object CloudRunPlugin {
   // Classes are not final so that Gradle could create decorated instances.
 
   class Extension(project: Project) {
-    @BeanProperty val serviceAccountKeyProperty: Property[String] = newStringProperty
-    @BeanProperty val region: Property[String] = newStringProperty
-    @BeanProperty val serviceYamlFilePath: Property[String] = newStringProperty
+    @BeanProperty val region: Property[String] = project.getObjects.property(classOf[String])
 
-    // Defaults
+    @BeanProperty val serviceAccountKeyProperty: Property[String] = project.getObjects.property(classOf[String])
     serviceAccountKeyProperty.set(CloudRun.cloudServiceAccountKeyPropertyDefault)
+
+    @BeanProperty val serviceYamlFilePath: Property[String] = project.getObjects.property(classOf[String])
     serviceYamlFilePath.set(s"${project.getProjectDir}/service.yaml")
 
-    // read-only properties exposed by the extension after project evaluation
+    // read-only values lazily exported by the extension;
+    // Note: lazy vals are used instead of project.afterEvaluate() to provide more laziness,
+    // so that JIB and CloudRun plugins do not have to be applied in specific order.
+    def getServiceAccountKey: Provider[String] = project.provider[String](() => serviceAccountKey)
+    def getCloudRunService: Provider[CloudRun.ForService] = project.provider[CloudRun.ForService](() => service)
+    def getContainerImage: Provider[String] = project.provider[String](() => service.containerImage)
 
-    private val cloudRunService: Property[CloudRun.ForService] =
-      project.getObjects.property(classOf[CloudRun.ForService])
-    def getCloudRunService: Property[CloudRun.ForService] = cloudRunService
+    private lazy val service: CloudRun.ForService = new CloudRun.ForService(
+      run = new CloudRun(
+        serviceAccountKey,
+        region = getValue(region, "region")
+      ),
+      serviceYamlFilePath = getValue(serviceYamlFilePath, "serviceYamlFilePath")
+    )
 
-    private val containerImage: Property[String] = newStringProperty
-    def getContainerImage: Property[String] = containerImage
-
-    private val serviceAccountKey: Property[String] = newStringProperty
-    def getServiceAccountKey: Property[String] = serviceAccountKey
-
-    private def newStringProperty: Property[String] = project.getObjects.property(classOf[String])
-
-    project.afterEvaluate((project: Project) => {
-      // TODO throw exception if any of the config parameters are empty (or empty strings).
-
-      val keyProperty: String = serviceAccountKeyProperty.get
-      val key: String =
-        if (keyProperty.startsWith("/")) {
-          val key: String = CloudRun.file2string(keyProperty)
-          project.getLogger.lifecycle(
-            "Add the following property to your .gradle/gradle.properties file:\n" +
-            CloudRun.key2property(key)
-          )
-          key
-        } else getProperty(keyProperty, project).getOrElse(throw new IllegalArgumentException(
+    private lazy val serviceAccountKey: String = {
+      val keyProperty: String = getValue(serviceAccountKeyProperty, "serviceAccountKeyProperty")
+      if (keyProperty.isEmpty) throw new IllegalArgumentException()
+      if (keyProperty.startsWith("/")) {
+        val key: String = CloudRun.file2string(keyProperty)
+        project.getLogger.lifecycle(
+          "Add the following property to your .gradle/gradle.properties file:\n" +
+           CloudRun.key2property(key)
+        )
+        key
+      } else Option(System.getenv(keyProperty))
+        .orElse(Option(project.findProperty(keyProperty).asInstanceOf[String]))
+        .getOrElse(throw new IllegalArgumentException(
           "Service account key not defined" +
           s"(looked at environment variable and property $keyProperty)"
         ))
+    }
 
-      val service: CloudRun.ForService = new CloudRun.ForService(
-        new CloudRun(key, region.get),
-        serviceYamlFilePath.get
-      )
+    private def getValue(property: Property[String], name: String): String = {
+      val result: String = property.get()
+      if (result.isEmpty) throw new IllegalArgumentException(s"$name is not set!")
+      result
+    }
 
-      cloudRunService.set(service)
-      containerImage.set(service.containerImage)
-      serviceAccountKey.set(key)
-    })
+    // Extension with the name 'jib' is assumed to be created by the
+    // [JIB plugin](https://github.com/GoogleContainerTools/jib)
+    // and be of the type com.google.cloud.tools.jib.gradle.JibExtension
+    project.afterEvaluate((project: Project) =>
+      Option(project.getExtensions.findByName("jib")).foreach(configureJib)
+    )
+
+    // MixInExtensibleDynamicObject
+    private def configureJib(jib: AnyRef): Unit = {
+      // TODO is there a way to set properties on the extension without linking JIB classes in?
+    }
   }
-
-  private def getProperty(propertyName: String, project: Project): Option[String] =
-  Option(System.getenv(propertyName))
-    .orElse(Option(project.findProperty(propertyName).asInstanceOf[String]))
 
   abstract class ServiceTask(
     description: String,

@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.5] - 2020-11-30
+- made properties exposed by the 'cloudRun' extension lazy to avoid plugin application order issues;
+- working on configuring 'jib' extension;
+
 ## [0.0.4] - 2020-11-30
 - enabled Gradle Plugin Portal deployment;
 - working on the JIB integration for the key;

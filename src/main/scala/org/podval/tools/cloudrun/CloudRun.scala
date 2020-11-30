@@ -18,8 +18,8 @@ import scala.io.Source
 // inspired in part by the deploy-cloudrun GitHub Action
 //   see https://github.com/google-github-actions/deploy-cloudrun
 final class CloudRun(
-  val serviceAccountKey: String,
-  val region: String
+  serviceAccountKey: String,
+  region: String
 ) {
   val credentials: ServiceAccountCredentials = CloudRun.key2credentials(serviceAccountKey)
 
