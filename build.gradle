@@ -5,8 +5,18 @@ plugins {
   id 'java-gradle-plugin'
   id 'maven-publish'
   id 'com.jfrog.bintray' version '1.8.5'
-//  id 'com.gradle.plugin-publish'
+  id 'com.gradle.plugin-publish' version '0.12.0'
 }
+
+group = 'org.podval.tools'
+version = '0.0.2'
+description = 'Configure Google Cloud Run'
+
+final String gitHubRepository = "dubinsky/cloud-run"
+final String gitHubRepositoryUrl = "https://github.com/$gitHubRepository"
+final String orgName = 'Podval Group'
+final String orgUrl = 'http://www.podval.org'
+final List<String> projectTags = ['Gradle', 'Google', 'CloudRun']
 
 repositories {
   jcenter()
@@ -19,35 +29,31 @@ dependencies {
   implementation 'com.google.auth:google-auth-library-oauth2-http:0.22.0'
   implementation 'com.google.api-client:google-api-client:1.31.1'
   implementation 'com.google.apis:google-api-services-run:v1-rev20201106-1.30.10'
-  implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.12.0'
+
+  // CloudRun plugin forces updates on a number of direct and transitive dependencies of the JIB plugin 2.6.0;
+  // some of the updates break JIB, and are prevented by using compatible versions here:
+
+  // by default, -android version gets dragged in and breaks JIB - I get
+  //   java.lang.NoSuchMethodError
+  //   com.google.common.collect.ImmutableList.toImmutableList()Ljava/util/stream/Collector;
+  implementation 'com.google.guava:guava:30.0-jre'
+
+  // latest is 2.12.12, but it breaks JIB - I get
+  //   com.google.cloud.tools.jib.plugins.common.BuildStepsExecutionException:
+  //   Java 8 date/time type `java.time.Instant` not supported by default:
+  //   add Module "com.fasterxml.jackson.datatype:jackson-datatype-jsr310" to enable handling
+  //   (through reference chain: java.util.ArrayList[0]->
+  //   com.google.cloud.tools.jib.cache.LayerEntriesSelector$LayerEntryTemplate["sourceModificationTime"])
+  // using latest *stable* version of Jackson artifacts (the same JIB itself uses):
+  implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.11.3'
 }
-
-group = 'org.podval.tools'
-version = '0.0.1'
-description = 'Configure Google Cloud Run'
-
-final String gitHubRepository = "dubinsky/cloud-run"
-final String gitHubRepositoryUrl = "https://github.com/$gitHubRepository"
-final String orgName = 'Podval Group'
-final String orgUrl = 'http://www.podval.org'
-final List<String> projectTags = ['Gradle', 'Google', 'CloudRun']
 
 // Gradle plugin [publishing?] plugin, if it is applied, adds tasks publishPluginJar
 // and publishPluginJavaDocsJar that create sources and javadoc archives;
 // attempts to use them as artifacts in the Maven publication failed, so I make my own.
-
 task sourceJar(type: Jar) {
   from sourceSets.main.allSource
   archiveClassifier.set('sources')
-}
-
-gradlePlugin {
-  plugins {
-    cloudRunPlugin {
-      id = project.name
-      implementationClass = 'org.podval.tools.cloudrun.CloudRunPlugin'
-    }
-  }
 }
 
 publishing {
@@ -116,11 +122,45 @@ bintray {
     licenses              = ['Apache-2.0']
     labels                = projectTags
     publicDownloadNumbers = true
-    // Note: there seems to be no way to supply per-module CHANGELOG.md -
-    // and package creation fails unless there is an overall one...
     githubReleaseNotesFile= 'CHANGELOG.md'
     version { name        = project.version }
   }
 }
 
-//upload.dependsOn(bintrayUpload)
+gradlePlugin {
+  plugins {
+    cloudRunPlugin {
+      id = project.name
+      implementationClass = 'org.podval.tools.cloudrun.CloudRunPlugin'
+    }
+  }
+}
+
+pluginBundle {
+  website = gitHubRepositoryUrl
+  vcsUrl  = gitHubRepositoryUrl //.git' ?
+
+  plugins {
+    cloudRunPlugin {
+      displayName = project.description
+      description = project.description
+      tags        = projectTags
+    }
+  }
+
+  // If you have an existing plugin deployed to Bintray and would like to keep
+  // your existing group ID and artifact ID for continuity, you can specify
+  // them here (needs manual approval on first publication).
+  mavenCoordinates {
+    groupId    = project.group
+    artifactId = project.name
+  }
+}
+
+
+task upload
+upload.description('Upload artifacts and plugins')
+upload.group('publishing')
+
+upload.dependsOn(bintrayUpload)
+//upload.dependsOn(publishPlugins)

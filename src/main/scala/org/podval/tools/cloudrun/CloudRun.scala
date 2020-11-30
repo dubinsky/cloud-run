@@ -2,7 +2,6 @@ package org.podval.tools.cloudrun
 
 import java.io.{ByteArrayInputStream, File, FileInputStream, InputStream}
 import java.nio.charset.Charset
-import com.fasterxml.jackson.core.JsonParseException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.{YAMLFactory, YAMLGenerator}
 import com.google.auth.oauth2.ServiceAccountCredentials
@@ -62,61 +61,15 @@ final class CloudRun(
     .execute()
 
   def replaceService(previous: Service, service: Service): Service = {
-    // TODO why does the GitHub Action merge previous into service?
-    //   (see https://github.com/google-github-actions/deploy-cloudrun/blob/e6563531efecd65332243ad924e3dcf72681c41a/src/service.ts#L138)
     // from the replaceService() JavaDoc:
     //  Only the spec and metadata labels and annotations are modifiable.
-    //  After the Update request, Cloud Run will work to make the 'status' match the requested 'spec'.
-    /*
-    public merge(prevService: run_v1.Schema$Service): void {
-    // Merge Revision Metadata
-    const labels = {
-      ...prevService.spec?.template?.metadata?.labels,
-      ...this.request.spec?.template?.metadata?.labels,
-    };
-    const annotations = {
-      ...prevService.spec?.template?.metadata?.annotations,
-      ...this.request.spec?.template?.metadata?.annotations,
-    };
-    this.request.spec!.template!.metadata = {
-      annotations,
-      labels,
-    };
-
-    // Merge Revision Spec
-    const prevContainer = prevService.spec!.template!.spec!.containers![0];
-    const currentContainer = this.request.spec!.template!.spec!.containers![0];
-    // Merge Container spec
-    const container = { ...prevContainer, ...currentContainer };
-    // Merge Spec
-    const spec = {
-      ...prevService.spec?.template?.spec,
-      ...this.request.spec!.template!.spec,
-    };
-    if (!currentContainer.command) {
-      // Remove entrypoint cmd and arguments if not specified
-      delete container.command;
-      delete container.args;
-    }
-    // Merge Env vars
-    let env: run_v1.Schema$EnvVar[] = [];
-    if (currentContainer.env) {
-      env = currentContainer.env.map(
-        (envVar) => envVar as run_v1.Schema$EnvVar,
-      );
-    }
-    const keys = env?.map((envVar) => envVar.name);
-    prevContainer.env?.forEach((envVar) => {
-      if (!keys.includes(envVar.name)) {
-        return env.push(envVar);
-      }
-    });
-    container.env = env;
-    spec.containers = [container];
-    this.request.spec!.template!.spec = spec;
-  }
-}
-     */
+    // see https://github.com/google-github-actions/deploy-cloudrun/blob/e6563531efecd65332243ad924e3dcf72681c41a/src/service.ts#L138
+    // GitHub Action merge 'previous' into 'service':
+    //   spec.template.metadata.labels;
+    //   spec.template.metadata.annotations;
+    //   spec.template.spec.containers[0]:
+    //     command and args are removed if not present in 'service'
+    //     in env, variables present in 'previous' but not in 'service' are added;
     replaceService(service)
   }
 
@@ -154,13 +107,9 @@ object CloudRun {
 
   final class ForService(val run: CloudRun, val service: Service) {
     def serviceName: String = CloudRun.getServiceName(service)
-
     def containerImage: String = CloudRun.getContainerImage(service)
-
     def getServiceYaml: String = run.getServiceYaml(serviceName)
-
     def deploy: Service = run.deployService(service)
-
     def getLatestRevisionYaml: String = run.getLatestRevisionYaml(serviceName)
   }
 
@@ -169,19 +118,6 @@ object CloudRun {
   def utf8: Charset = Charset.forName("UTF-8")
 
   def jsonFactory: JsonFactory = JacksonFactory.getDefaultInstance
-
-  def keyOrFile2credentials(key: String): ServiceAccountCredentials = {
-    try { key2credentials(key) } catch {
-      case e: JsonParseException =>
-        val keyFromFile: String = file2string(key)
-        println(s"Error parsing key: ${e.getMessage}")
-        println(s"Trying file at $key")
-        val result = key2credentials(keyFromFile)
-        println("Add the following property to your .gradle/gradle.properties file:")
-        println(key2property(keyFromFile))
-        result
-    }
-  }
 
   // authentication - see
   //   https://github.com/googleapis/google-auth-library-java#google-auth-library-oauth2-http
