@@ -35,7 +35,7 @@ final class CloudRunPlugin extends Plugin[Project] {
           extension,
           deployTask,
           jibExtension,
-          project.getTasks.findByPath("jib")
+          jibTask = project.getTasks.findByPath("jib")
         )}
     )
   }
@@ -48,30 +48,34 @@ final class CloudRunPlugin extends Plugin[Project] {
     jibTask: Task
   ): Unit = {
     def log(message: String): Unit = project.getLogger.info(message, null, null, null)
-      deployTask.dependsOn(jibTask)
 
-      val to: TargetImageParameters = jibExtension.getTo
-      if (to.getImage == null) {
-        to.setImage(project.provider(() => extension.service.containerImage))
-        log("CloudRun: configured 'jib.to.image'.")
-      }
+    deployTask.dependsOn(jibTask)
 
-      val auth: AuthParameters = to.getAuth
+    val to: TargetImageParameters = jibExtension.getTo
 
-      if (auth.getUsername == null) {
-        auth.setUsername("_json_key")
-        log("CloudRun: configured 'jib.to.auth.username'.")
-      }
-
-      // see https://github.com/dubinsky/cloud-run/issues/6
-      jibTask.doFirst((_: Task) => if (auth.getPassword == null) {
-        auth.setPassword(extension.serviceAccountKey)
-        log("CloudRun: configured 'jib.to.auth.password'.")
-      })
+    if (to.getImage == null) {
+      to.setImage(project.provider(() => extension.service.containerImage))
+      log("CloudRun: configured 'jib.to.image'.")
     }
+
+    val auth: AuthParameters = to.getAuth
+
+    if (auth.getUsername == null) {
+      auth.setUsername("_json_key")
+      log("CloudRun: configured 'jib.to.auth.username'.")
+    }
+
+    // see https://github.com/dubinsky/cloud-run/issues/6
+    jibTask.doFirst((_: Task) => if (auth.getPassword == null) {
+      auth.setPassword(extension.serviceAccountKey)
+      log("CloudRun: configured 'jib.to.auth.password'.")
+    })
+  }
 }
 
 object CloudRunPlugin {
+
+  private val cloudServiceAccountKeyPropertyDefault: String = "gcloudServiceAccountKey"
 
   // Properties are annotated with @BeanProperty to make them visible to Gradle.
   // Classes are not final so that Gradle could create decorated instances.
@@ -80,7 +84,7 @@ object CloudRunPlugin {
     @BeanProperty val region: Property[String] = project.getObjects.property(classOf[String])
 
     @BeanProperty val serviceAccountKeyProperty: Property[String] = project.getObjects.property(classOf[String])
-    serviceAccountKeyProperty.set(CloudRun.cloudServiceAccountKeyPropertyDefault)
+    serviceAccountKeyProperty.set(cloudServiceAccountKeyPropertyDefault)
 
     @BeanProperty val serviceYamlFilePath: Property[String] = project.getObjects.property(classOf[String])
     serviceYamlFilePath.set(s"${project.getProjectDir}/service.yaml")
@@ -100,7 +104,10 @@ object CloudRunPlugin {
         val key: String = CloudRun.file2string(keyProperty)
         project.getLogger.lifecycle(
           "Add the following property to your .gradle/gradle.properties file:\n" +
-           CloudRun.key2property(key)
+          cloudServiceAccountKeyPropertyDefault  + "= \\\n" +
+          key
+            .replace("\n", " \\\n")
+            .replace("\\n", "\\\\n")
         )
         key
       } else Option(System.getenv(keyProperty))

@@ -149,8 +149,13 @@ New:
 - name: "Build and push container image to Google Container Registry and deploy Cloud Run service"
   env:
     gcloudServiceAccountKey: ${{secrets.gcloudServiceAccountKey}}
+    jib.console: "plain"
   run: ./gradlew --no-daemon deploy
 ```
+
+  // used by the GitHub Action to determine if the service exists; I do it differently.
+  def exists(serviceName: String): Boolean =
+    listServices.map(CloudRun.getServiceName).contains(serviceName)
 
 
 ## Differences from gcloud run ##
@@ -171,3 +176,28 @@ deploy.doLast {
 
 ## Technical notes ##
 
+// inspired in part by the deploy-cloudrun GitHub Action
+//   see https://github.com/google-github-actions/deploy-cloudrun
+// authentication - see
+//   https://github.com/googleapis/google-auth-library-java#google-auth-library-oauth2-http
+// (what is ServiceAccountJwtAccessCredentials.fromStream(keyStream) for?)
+// using credentials with Google's HTTP clients - see
+//   https://github.com/googleapis/google-auth-library-java#using-credentials-with-google-http-client
+
+// from the replaceService() JavaDoc:
+//  Only the spec and metadata labels and annotations are modifiable.
+// see https://github.com/google-github-actions/deploy-cloudrun/blob/e6563531efecd65332243ad924e3dcf72681c41a/src/service.ts#L138
+// GitHub Action merge 'previous' into 'service':
+//   spec.template.metadata.labels;
+//   spec.template.metadata.annotations;
+//   spec.template.spec.containers[0]:
+//     command and args are removed if not present in 'service'
+//     in env, variables present in 'previous' but not in 'service' are added;
+
+// Note: when parsing Service YAML, objectMapper.readValue(inputStream, classOf[Service]) throws
+//   java.lang.IllegalArgumentException:
+//   Can not set com.google.api.services.run.v1.model.ObjectMeta field
+//   com.google.api.services.run.v1.model.Service.metadata to java.util.LinkedHashMap
+// so I convert YAML into a JSON string and then parse it using Google's parser:
+
+Include annotated service.xml here!
