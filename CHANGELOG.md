@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.7] - 2020-11-30
+- set jib.to.auth.password only when jib task is about to execute:
+  in CI environment key property may not be defined during a non-deploy build;
+  
 ## [0.0.6] - 2020-11-30
 - JIB auto-configuration (jib.to.image, jib.to.auth.username, jib.to.auth.password);
 - cloudRunDeploy.dependsOn('jib');

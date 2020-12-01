@@ -1,8 +1,8 @@
 package org.podval.tools.cloudrun
 
-import org.gradle.api.provider.{Property, Provider}
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.{Input, TaskAction}
-import org.gradle.api.{DefaultTask, Plugin, Project}
+import org.gradle.api.{DefaultTask, Plugin, Project, Task}
 import scala.beans.BeanProperty
 import com.google.cloud.tools.jib.gradle.{AuthParameters, JibExtension, TargetImageParameters}
 
@@ -14,7 +14,7 @@ final class CloudRunPlugin extends Plugin[Project] {
 
     def wireTask[T <: CloudRunPlugin.ServiceTask](name: String, clazz: Class[T]): T = {
       val result: T = project.getTasks.create[T](name, clazz)
-      result.cloudRunService.set(extension.getCloudRunService)
+      result.cloudRunService.set(project.provider(() => extension.service))
       result
     }
 
@@ -24,43 +24,51 @@ final class CloudRunPlugin extends Plugin[Project] {
     wireTask("cloudRunGetServiceYaml", classOf[CloudRunPlugin.GetServiceYamlTask])
     wireTask("cloudRunGetLatestRevisionYaml", classOf[CloudRunPlugin.GetLatestRevisionYamlTask])
 
-    project.afterEvaluate((project: Project) => afterEvaluate(project, extension, deployTask))
+    // Extension with the name 'jib' is assumed to be created by the
+    // [JIB plugin](https://github.com/GoogleContainerTools/jib);
+    // it is then of the type com.google.cloud.tools.jib.gradle.JibExtension, and task 'jib' exists.
+    project.afterEvaluate((project: Project) =>
+      Option(project.getExtensions.findByName("jib"))
+        .map(_.asInstanceOf[JibExtension])
+        .foreach { jibExtension => configureJib(
+          project,
+          extension,
+          deployTask,
+          jibExtension,
+          project.getTasks.findByPath("jib")
+        )}
+    )
   }
 
-  private def afterEvaluate(
+  private def configureJib(
     project: Project,
     extension: CloudRunPlugin.Extension,
-    deployTask: CloudRunPlugin.DeployTask
+    deployTask: CloudRunPlugin.DeployTask,
+    jibExtension: JibExtension,
+    jibTask: Task
   ): Unit = {
     def log(message: String): Unit = project.getLogger.info(message, null, null, null)
+      deployTask.dependsOn(jibTask)
 
-    // Extension with the name 'jib' is assumed to be created by the
-    // [JIB plugin](https://github.com/GoogleContainerTools/jib)
-    // and be of the type com.google.cloud.tools.jib.gradle.JibExtension;
-    // task 'jib' is assumed to belong to JIB plugin also.
-    Option(project.getExtensions.findByName("jib")).map(_.asInstanceOf[JibExtension]).foreach { jibExtension =>
       val to: TargetImageParameters = jibExtension.getTo
       if (to.getImage == null) {
-        to.setImage(extension.getContainerImage)
+        to.setImage(project.provider(() => extension.service.containerImage))
         log("CloudRun: configured 'jib.to.image'.")
       }
+
       val auth: AuthParameters = to.getAuth
+
       if (auth.getUsername == null) {
         auth.setUsername("_json_key")
         log("CloudRun: configured 'jib.to.auth.username'.")
       }
-      if (auth.getPassword == null) {
-        // TODO if JIB ever makes password into a Propertys instead of just String
-        // (see https://github.com/GoogleContainerTools/jib/issues/2905),
-        // we won't have to force computation here with the `.get()`...
-        auth.setPassword(extension.getServiceAccountKey.get)
-        log("CloudRun: configured 'jib.to.auth.password'.")
-      }
-    }
 
-    Option(project.getTasks.findByPath("jib"))
-      .foreach(jibTask => deployTask.dependsOn(jibTask))
-  }
+      // see https://github.com/dubinsky/cloud-run/issues/6
+      jibTask.doFirst((_: Task) => if (auth.getPassword == null) {
+        auth.setPassword(extension.serviceAccountKey)
+        log("CloudRun: configured 'jib.to.auth.password'.")
+      })
+    }
 }
 
 object CloudRunPlugin {
@@ -77,14 +85,7 @@ object CloudRunPlugin {
     @BeanProperty val serviceYamlFilePath: Property[String] = project.getObjects.property(classOf[String])
     serviceYamlFilePath.set(s"${project.getProjectDir}/service.yaml")
 
-    // read-only values lazily exported by the extension;
-    // Note: lazy vals are used instead of project.afterEvaluate() to provide more laziness,
-    // so that JIB and CloudRun plugins do not have to be applied in specific order.
-    def getServiceAccountKey: Provider[String] = project.provider[String](() => serviceAccountKey)
-    def getCloudRunService: Provider[CloudRun.ForService] = project.provider[CloudRun.ForService](() => service)
-    def getContainerImage: Provider[String] = project.provider[String](() => service.containerImage)
-
-    private lazy val service: CloudRun.ForService = new CloudRun.ForService(
+    lazy val service: CloudRun.ForService = new CloudRun.ForService(
       run = new CloudRun(
         serviceAccountKey,
         region = getValue(region, "region")
@@ -92,7 +93,7 @@ object CloudRunPlugin {
       serviceYamlFilePath = getValue(serviceYamlFilePath, "serviceYamlFilePath")
     )
 
-    private lazy val serviceAccountKey: String = {
+    lazy val serviceAccountKey: String = {
       val keyProperty: String = getValue(serviceAccountKeyProperty, "serviceAccountKeyProperty")
       if (keyProperty.isEmpty) throw new IllegalArgumentException()
       if (keyProperty.startsWith("/")) {
@@ -106,7 +107,7 @@ object CloudRunPlugin {
         .orElse(Option(project.findProperty(keyProperty).asInstanceOf[String]))
         .getOrElse(throw new IllegalArgumentException(
           "Service account key not defined" +
-          s"(looked at environment variable and property $keyProperty)"
+          s" (looked at environment variable and property $keyProperty)"
         ))
     }
 

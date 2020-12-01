@@ -9,7 +9,7 @@ plugins {
 }
 
 group = 'org.podval.tools'
-version = '0.0.6'
+version = '0.0.7'
 description = 'Configure Google Cloud Run'
 
 final String gitHubRepository = "dubinsky/cloud-run"

@@ -150,7 +150,8 @@ object CloudRun {
   def getServiceName(service: Service): String = service.getMetadata.getName
 
   // image name of the first container!
-  def getContainerImage(service: Service): String = service.getSpec.getTemplate.getSpec.getContainers.get(0).getImage
+  def getContainerImage(service: Service): String =
+    service.getSpec.getTemplate.getSpec.getContainers.get(0).getImage
 
   def yaml2json(yamlFilePath: String): String = {
     val yamlInputStream: InputStream = new FileInputStream(new File(yamlFilePath))
@@ -176,16 +177,4 @@ object CloudRun {
     source.close()
     result
   }
-
-//  def main(args: Array[String]): Unit = {
-//    val service: ForService = new ForService(
-//      new CloudRun(
-//        file2string("/home/dub/.gradle/gcloudServiceAccountKey.json"),
-//        region = "us-east4"
-//      ),
-//      "service.yaml"
-//    )
-//
-//    println(service.getLatestRevisionYaml)
-//  }
 }
