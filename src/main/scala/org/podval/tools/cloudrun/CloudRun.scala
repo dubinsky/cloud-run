@@ -43,12 +43,6 @@ final class CloudRun(
     .namespaces().services().get(s"namespaces/$projectId/services/$serviceName")
     .execute()
 
-  def getServiceIfExists(serviceName: String): Option[Service] =
-    try { Some(getService(serviceName)) } catch { case _: GoogleJsonResponseException => None }
-
-  // equivalent to `gcloud run services describe $serviceName --format export`
-  def getServiceYaml(serviceName: String): String = CloudRun.json2yaml(getService(serviceName))
-
   def listRevisions: List[Revision] = client
     .namespaces().revisions().list(s"namespaces/$projectId")
     .execute().getItems.asScala.toList
@@ -57,43 +51,40 @@ final class CloudRun(
     .namespaces().revisions().get(s"namespaces/$projectId/revisions/$revisionName")
     .execute()
 
-  def getLatestRevision(serviceName: String): Revision =
-    getRevision(getService(serviceName).getStatus.getLatestCreatedRevisionName)
-
-  def getLatestRevisionYaml(serviceName: String): String =
-    CloudRun.json2yaml(getLatestRevision(serviceName))
-
-  def deployService(service: Service): Service =
-    getServiceIfExists(CloudRun.getServiceName(service))
-      .fold(createService(service))(previous => replaceService(service))
-
   def createService(service: Service): Service = client
     .namespaces().services().create(s"namespaces/$projectId", service)
     .execute()
 
-  def replaceService(service: Service): Service = {
-    val serviceName: String = CloudRun.getServiceName(service)
-    client
-      .namespaces().services().replaceService(s"namespaces/$projectId/services/$serviceName", service)
-      .execute()
-  }
+  def replaceService(serviceName: String, service: Service): Service = client
+    .namespaces().services().replaceService(s"namespaces/$projectId/services/$serviceName", service)
+    .execute()
 }
 
 object CloudRun {
 
   final class ForService(run: CloudRun, serviceYamlFilePath: String) {
-    private val service: Service = parseServiceYaml(serviceYamlFilePath)
 
-    private def serviceName: String = getServiceName(service)
+    private val service: Service = new JsonObjectParser(jsonFactory).parseAndClose(
+      string2stream(yaml2json(serviceYamlFilePath)),
+      utf8,
+      classOf[Service]
+    )
+
+    private def serviceName: String = service.getMetadata.getName
 
     // container image name of the first container!
     def containerImage: String = service.getSpec.getTemplate.getSpec.getContainers.get(0).getImage
 
-    def getServiceYaml: String = run.getServiceYaml(serviceName)
+    def getService: Service = run.getService(serviceName)
 
-    def deploy: Service = run.deployService(service)
+    // equivalent to `gcloud run services describe $serviceName --format export`
+    def getServiceYaml: String = json2yaml(getService)
 
-    def getLatestRevisionYaml: String = run.getLatestRevisionYaml(serviceName)
+    def deploy: Service = (try Some(getService) catch { case _: GoogleJsonResponseException => None })
+      .fold(run.createService(service))(_ /*previous*/ => run.replaceService(serviceName, service))
+
+    def getLatestRevisionYaml: String =
+      json2yaml(run.getRevision(getService.getStatus.getLatestCreatedRevisionName))
   }
 
   private val applicationName: String = "podval-google-cloud-run"
@@ -102,31 +93,17 @@ object CloudRun {
 
   private def jsonFactory: JsonFactory = JacksonFactory.getDefaultInstance
 
-  private def parseServiceYaml(path: String): Service = new JsonObjectParser(jsonFactory).parseAndClose(
-    string2stream(yaml2json(path)),
-    utf8,
-    classOf[Service]
-  )
-
-  private def getServiceName(service: Service): String = service.getMetadata.getName
-
   private def yaml2json(yamlFilePath: String): String = {
     val yamlInputStream: InputStream = new FileInputStream(new File(yamlFilePath))
     val objectMapper: ObjectMapper = new ObjectMapper(new YAMLFactory)
     objectMapper.readTree(yamlInputStream).toString
   }
 
-  def json2yaml(value: AnyRef): String = {
+  private def json2yaml(value: AnyRef): String = {
     val yamlFactory: YAMLFactory = new YAMLFactory
-
-    // suppress leading "---"
-    yamlFactory.disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
-
+    yamlFactory.disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER) // suppress leading "---"
     new ObjectMapper(yamlFactory).writeValueAsString(value)
   }
-
-  private def string2stream(string: String): InputStream =
-    new ByteArrayInputStream(string.getBytes(utf8))
 
   def file2string(path: String): String = {
     val source: Source = Source.fromFile(path)
@@ -134,4 +111,7 @@ object CloudRun {
     source.close()
     result
   }
+
+  private def string2stream(string: String): InputStream =
+    new ByteArrayInputStream(string.getBytes(utf8))
 }

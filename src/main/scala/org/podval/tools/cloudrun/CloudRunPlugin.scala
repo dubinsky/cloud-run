@@ -3,7 +3,6 @@ package org.podval.tools.cloudrun
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.{Input, TaskAction}
 import org.gradle.api.{DefaultTask, Plugin, Project, Task}
-import scala.beans.BeanProperty
 import com.google.cloud.tools.jib.gradle.{AuthParameters, JibExtension, TargetImageParameters}
 
 final class CloudRunPlugin extends Plugin[Project] {
@@ -14,7 +13,7 @@ final class CloudRunPlugin extends Plugin[Project] {
 
     def wireTask[T <: CloudRunPlugin.ServiceTask](name: String, clazz: Class[T]): T = {
       val result: T = project.getTasks.create[T](name, clazz)
-      result.cloudRunService.set(project.provider(() => extension.service))
+      result.getCloudRunService.set(project.provider(() => extension.service))
       result
     }
 
@@ -65,11 +64,14 @@ final class CloudRunPlugin extends Plugin[Project] {
       log("CloudRun: configured 'jib.to.auth.username'.")
     }
 
-    // see https://github.com/dubinsky/cloud-run/issues/6
-    jibTask.doFirst((_: Task) => if (auth.getPassword == null) {
-      auth.setPassword(extension.serviceAccountKey)
-      log("CloudRun: configured 'jib.to.auth.password'.")
-    })
+    // see https://github.com/dubinsky/cloud-run/issues/6;
+    if (auth.getPassword == null) {
+//      auth.setPassword(project.provider(() => extension.serviceAccountKey))
+      jibTask.doFirst((_: Task) => {
+        auth.setPassword(extension.serviceAccountKey)
+        log("CloudRun: configured 'jib.to.auth.password'.")
+      })
+    }
   }
 }
 
@@ -77,16 +79,18 @@ object CloudRunPlugin {
 
   private val cloudServiceAccountKeyPropertyDefault: String = "gcloudServiceAccountKey"
 
-  // Properties are annotated with @BeanProperty to make them visible to Gradle.
-  // Classes are not final so that Gradle could create decorated instances.
+  // Extension and Task classes are not final so that Gradle could create decorated instances.
 
   class Extension(project: Project) {
-    @BeanProperty val region: Property[String] = project.getObjects.property(classOf[String])
+    private val region: Property[String] = project.getObjects.property(classOf[String])
+    def getRegion: Property[String] = region
 
-    @BeanProperty val serviceAccountKeyProperty: Property[String] = project.getObjects.property(classOf[String])
+    private val serviceAccountKeyProperty: Property[String] = project.getObjects.property(classOf[String])
+    def getServiceAccountKeyProperty: Property[String] = serviceAccountKeyProperty
     serviceAccountKeyProperty.set(cloudServiceAccountKeyPropertyDefault)
 
-    @BeanProperty val serviceYamlFilePath: Property[String] = project.getObjects.property(classOf[String])
+    private val serviceYamlFilePath: Property[String] = project.getObjects.property(classOf[String])
+    def getServiceYamlFilePath: Property[String] = serviceYamlFilePath
     serviceYamlFilePath.set(s"${project.getProjectDir}/service.yaml")
 
     lazy val service: CloudRun.ForService = new CloudRun.ForService(
@@ -132,8 +136,10 @@ object CloudRunPlugin {
     setDescription(description)
     setGroup(group)
 
-    @Input @BeanProperty final val cloudRunService: Property[CloudRun.ForService] =
+    private val cloudRunService: Property[CloudRun.ForService] =
       getProject.getObjects.property(classOf[CloudRun.ForService])
+
+    @Input def getCloudRunService: Property[CloudRun.ForService] = cloudRunService
 
     @TaskAction final def execute(): Unit = execute(cloudRunService.get)
 
