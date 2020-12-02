@@ -70,6 +70,10 @@ revision was created, Google Cloud Run will (correctly) not create a new revisio
 It also creates two help tasks that retrieve the YAML for the service and
 its latest revision respectively: `cloudRunGetServiceYaml` and `cloudRunGetLatestRevisionYaml`.
 
+// equivalent to `gcloud run services describe $serviceName --format export`
+
+TODO !!! image changes, but re-deploy is not happening?!
+
 ## Motivation ##
 
 TODO

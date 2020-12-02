@@ -4,6 +4,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.{Input, TaskAction}
 import org.gradle.api.{DefaultTask, Plugin, Project, Task}
 import com.google.cloud.tools.jib.gradle.{AuthParameters, JibExtension, TargetImageParameters}
+import scala.util.Try
 
 final class CloudRunPlugin extends Plugin[Project] {
 
@@ -77,7 +78,7 @@ final class CloudRunPlugin extends Plugin[Project] {
 
 object CloudRunPlugin {
 
-  private val cloudServiceAccountKeyPropertyDefault: String = "gcloudServiceAccountKey"
+  private val serviceAccountKeyPropertyDefault: String = "gcloudServiceAccountKey"
 
   // Extension and Task classes are not final so that Gradle could create decorated instances.
 
@@ -87,17 +88,15 @@ object CloudRunPlugin {
 
     private val serviceAccountKeyProperty: Property[String] = project.getObjects.property(classOf[String])
     def getServiceAccountKeyProperty: Property[String] = serviceAccountKeyProperty
-    serviceAccountKeyProperty.set(cloudServiceAccountKeyPropertyDefault)
+    serviceAccountKeyProperty.set(serviceAccountKeyPropertyDefault)
 
     private val serviceYamlFilePath: Property[String] = project.getObjects.property(classOf[String])
     def getServiceYamlFilePath: Property[String] = serviceYamlFilePath
     serviceYamlFilePath.set(s"${project.getProjectDir}/service.yaml")
 
-    lazy val service: CloudRun.ForService = new CloudRun.ForService(
-      run = new CloudRun(
-        serviceAccountKey,
-        region = getValue(region, "region")
-      ),
+    lazy val service: CloudRunService = CloudRunService(
+      serviceAccountKey,
+      region = getValue(region, "region"),
       serviceYamlFilePath = getValue(serviceYamlFilePath, "serviceYamlFilePath")
     )
 
@@ -108,7 +107,7 @@ object CloudRunPlugin {
         val key: String = CloudRun.file2string(keyProperty)
         project.getLogger.lifecycle(
           "Add the following property to your .gradle/gradle.properties file:\n" +
-          cloudServiceAccountKeyPropertyDefault  + "= \\\n" +
+          serviceAccountKeyPropertyDefault  + "= \\\n" +
           key
             .replace("\n", " \\\n")
             .replace("\\n", "\\\\n")
@@ -136,37 +135,50 @@ object CloudRunPlugin {
     setDescription(description)
     setGroup(group)
 
-    private val cloudRunService: Property[CloudRun.ForService] =
-      getProject.getObjects.property(classOf[CloudRun.ForService])
+    private val cloudRunService: Property[CloudRunService] =
+      getProject.getObjects.property(classOf[CloudRunService])
 
-    @Input def getCloudRunService: Property[CloudRun.ForService] = cloudRunService
+    @Input def getCloudRunService: Property[CloudRunService] = cloudRunService
 
     @TaskAction final def execute(): Unit = execute(cloudRunService.get)
 
-    protected def execute(cloudRunService: CloudRun.ForService): Unit
+    protected def execute(cloudRunService: CloudRunService): Unit
   }
 
   class DeployTask extends ServiceTask(
     description = "Deploy the service to Google Cloud Run",
     group = "publishing"
   ) {
-    override protected def execute(cloudRunService: CloudRun.ForService): Unit =
-      cloudRunService.deploy
+    override protected def execute(cloudRunService: CloudRunService): Unit = {
+      def log(message: String): Unit = getProject.getLogger.lifecycle(message, null, null, null)
+
+      Try(cloudRunService.getService).toOption.fold {
+        val request: String = CloudRun.json2yaml(cloudRunService.service)
+        log(s"Creating new service:\n$request\n")
+        val response: String = CloudRun.json2yaml(cloudRunService.createService)
+        log(s"Response:\n$response")
+      } { _ /*previous*/ =>
+        val request: String = CloudRun.json2yaml(cloudRunService.service)
+        log(s"Replacing existing service:\n$request\n")
+        val response: String = CloudRun.json2yaml(cloudRunService.replaceService)
+        log(s"Response:\n$response")
+      }
+    }
   }
 
   class GetServiceYamlTask extends ServiceTask(
     description = "Get the service YAML from Google Cloud Run",
     group = "help"
   ) {
-    override protected def execute(cloudRunService: CloudRun.ForService): Unit =
-      getProject.getLogger.lifecycle(cloudRunService.getServiceYaml)
+    override protected def execute(cloudRunService: CloudRunService): Unit =
+      getProject.getLogger.lifecycle(CloudRun.json2yaml(cloudRunService.getService))
   }
 
   class GetLatestRevisionYamlTask extends ServiceTask(
     description = "Get the latest revision YAML from Google Cloud Run",
     group = "help"
   ) {
-    override protected def execute(cloudRunService: CloudRun.ForService): Unit =
-      getProject.getLogger.lifecycle(cloudRunService.getLatestRevisionYaml)
+    override protected def execute(cloudRunService: CloudRunService): Unit =
+      getProject.getLogger.lifecycle(CloudRun.json2yaml(cloudRunService.getLatestRevision))
   }
 }

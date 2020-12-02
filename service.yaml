@@ -22,7 +22,7 @@
 apiVersion: "serving.knative.dev/v1"
 kind: "Service"
 metadata:
-  name: "xxx"                                          # SERVICE parameter
+  name: "collector"                                    # SERVICE parameter
   #labels:
   #  LABEL: 'VALUE'                                    # --labels
   annotations:
