@@ -28,51 +28,37 @@ final class CloudRunPlugin extends Plugin[Project] {
     // [JIB plugin](https://github.com/GoogleContainerTools/jib);
     // it is then of the type com.google.cloud.tools.jib.gradle.JibExtension, and task 'jib' exists.
     project.afterEvaluate((project: Project) =>
-      Option(project.getExtensions.findByName("jib"))
-        .map(_.asInstanceOf[JibExtension])
-        .foreach { jibExtension => configureJib(
-          project,
-          extension,
-          deployTask,
-          jibExtension,
-          jibTask = project.getTasks.findByPath("jib")
-        )}
+      Option(project.getExtensions.findByName("jib")).map(_.asInstanceOf[JibExtension]).foreach { jibExtension =>
+        def log(message: String): Unit = project.getLogger.info(message, null, null, null)
+
+        val jibTask = project.getTasks.findByPath("jib")
+
+        deployTask.dependsOn(jibTask)
+
+        val to: TargetImageParameters = jibExtension.getTo
+
+        if (to.getImage == null) {
+          to.setImage(project.provider(() => extension.service.containerImage))
+          log("CloudRun: configured 'jib.to.image'.")
+        }
+
+        val auth: AuthParameters = to.getAuth
+
+        if (auth.getUsername == null) {
+          auth.setUsername("_json_key")
+          log("CloudRun: configured 'jib.to.auth.username'.")
+        }
+
+        // see https://github.com/dubinsky/cloud-run/issues/6:
+        if (auth.getPassword == null) {
+          //      auth.setPassword(project.provider(() => extension.serviceAccountKey))
+          jibTask.doFirst((_: Task) => {
+            auth.setPassword(extension.serviceAccountKey)
+            log("CloudRun: configured 'jib.to.auth.password'.")
+          })
+        }
+      }
     )
-  }
-
-  private def configureJib(
-    project: Project,
-    extension: CloudRunPlugin.Extension,
-    deployTask: CloudRunPlugin.DeployTask,
-    jibExtension: JibExtension,
-    jibTask: Task
-  ): Unit = {
-    def log(message: String): Unit = project.getLogger.info(message, null, null, null)
-
-    deployTask.dependsOn(jibTask)
-
-    val to: TargetImageParameters = jibExtension.getTo
-
-    if (to.getImage == null) {
-      to.setImage(project.provider(() => extension.service.containerImage))
-      log("CloudRun: configured 'jib.to.image'.")
-    }
-
-    val auth: AuthParameters = to.getAuth
-
-    if (auth.getUsername == null) {
-      auth.setUsername("_json_key")
-      log("CloudRun: configured 'jib.to.auth.username'.")
-    }
-
-    // see https://github.com/dubinsky/cloud-run/issues/6;
-    if (auth.getPassword == null) {
-//      auth.setPassword(project.provider(() => extension.serviceAccountKey))
-      jibTask.doFirst((_: Task) => {
-        auth.setPassword(extension.serviceAccountKey)
-        log("CloudRun: configured 'jib.to.auth.password'.")
-      })
-    }
   }
 }
 
@@ -94,11 +80,10 @@ object CloudRunPlugin {
     def getServiceYamlFilePath: Property[String] = serviceYamlFilePath
     serviceYamlFilePath.set(s"${project.getProjectDir}/service.yaml")
 
-    lazy val service: CloudRunService = CloudRunService(
+    lazy val service: CloudRunService = new CloudRun(
       serviceAccountKey,
-      region = getValue(region, "region"),
-      serviceYamlFilePath = getValue(serviceYamlFilePath, "serviceYamlFilePath")
-    )
+      region = getValue(region, "region")
+    ).serviceForYaml(getValue(serviceYamlFilePath, "serviceYamlFilePath"))
 
     lazy val serviceAccountKey: String = {
       val keyProperty: String = getValue(serviceAccountKeyProperty, "serviceAccountKeyProperty")
@@ -157,10 +142,10 @@ object CloudRunPlugin {
         log(s"Creating new service:\n$request\n")
         val response: String = CloudRun.json2yaml(cloudRunService.create)
         log(s"Response:\n$response")
-      } { _ /*previous*/ =>
+      } { previous =>
         val request: String = CloudRun.json2yaml(cloudRunService.service)
-        log(s"Replacing existing service:\n$request\n")
-        val response: String = CloudRun.json2yaml(cloudRunService.replace)
+        log(s"Redeploying existing service:\n$request\n")
+        val response: String = CloudRun.json2yaml(cloudRunService.redeploy(previous))
         log(s"Response:\n$response")
       }
     }

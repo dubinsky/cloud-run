@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.9] - 2020-12-03
+- force redeployment by specifying revision name;
+- cleanup;
+
 ## [0.0.8] - 2020-12-01
 - removed the use of BeanProperty annotation;
 - cleanup;

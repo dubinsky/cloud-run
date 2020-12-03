@@ -214,15 +214,11 @@ Include annotated service.xml here!
 [Google Cloud SDK](https://github.com/twistedpair/google-cloud-sdk)
 
 [gcloud run](https://github.com/twistedpair/google-cloud-sdk/tree/master/google-cloud-sdk/lib/googlecloudsdk/command_lib/run)
-- serverless_operations.py
-- stages.py
-- name_generator.py
-- config_changes.py
 
-  // metadata.labels:
-  //      serving.knative.dev/configuration: "collector"
-  //    serving.knative.dev/configurationGeneration: "83"
-  //    serving.knative.dev/service: "collector"
+// metadata.labels:
+//    serving.knative.dev/configuration: "collector"
+//    serving.knative.dev/configurationGeneration: "83"
+//    serving.knative.dev/service: "collector"
 
 
 gcloud run deploy

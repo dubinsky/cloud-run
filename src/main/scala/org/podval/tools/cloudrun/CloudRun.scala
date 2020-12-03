@@ -67,6 +67,11 @@ final class CloudRun(
   def deleteRevision(revisionName: String): Status = client
     .namespaces().revisions().delete(s"$namespace/revisions/$revisionName")
     .execute()
+
+  def serviceForYaml(serviceYamlFilePath: String): CloudRunService = new CloudRunService(
+    run = this,
+    service = CloudRun.json2object(classOf[Service], CloudRun.yaml2json(serviceYamlFilePath))
+  )
 }
 
 object CloudRun {
@@ -106,3 +111,19 @@ object CloudRun {
   private def string2stream(string: String): InputStream =
     new ByteArrayInputStream(string.getBytes(utf8))
 }
+
+/*
+  gcloud:
+
+  - serverless_operations.py
+    - init - staging (#148)
+    - _NewRevisionForcingChange (#412)
+    - WaitForCondition (#563)
+    - _UpdateOrCreateService (#848)
+    - _AddRevisionForcingChange (#963)
+    - ReleaseService (#984)
+
+  - config_changes.py
+  - stages.py
+  - name_generator.py
+ */
