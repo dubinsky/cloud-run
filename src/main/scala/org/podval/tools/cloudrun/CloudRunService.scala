@@ -1,6 +1,6 @@
 package org.podval.tools.cloudrun
 
-import com.google.api.services.run.v1.model.{Revision, Service}
+import com.google.api.services.run.v1.model.{Revision, Service, Status}
 
 final class CloudRunService private(run: CloudRun, serviceYamlFilePath: String) {
 
@@ -11,14 +11,15 @@ final class CloudRunService private(run: CloudRun, serviceYamlFilePath: String) 
   // container image name of the first container!
   def containerImage: String = service.getSpec.getTemplate.getSpec.getContainers.get(0).getImage
 
-  def getService: Service = run.getService(serviceName)
+  def create: Service = run.createService(service)
 
-  def createService: Service = run.createService(service)
+  def get: Service = run.getService(serviceName)
 
-  def replaceService: Service = run.replaceService(serviceName, service)
+  def replace: Service = run.replaceService(serviceName, service)
 
-  def getLatestRevision: Revision =
-    run.getRevision(getService.getStatus.getLatestCreatedRevisionName)
+  def delete: Status = run.deleteService(serviceName)
+
+  def getLatestRevision: Revision = run.getRevision(get.getStatus.getLatestCreatedRevisionName)
 }
 
 object CloudRunService {

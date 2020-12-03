@@ -1,9 +1,11 @@
 ## Overview ##
 
-Gradle plugin to deploy Google Cloud Run services.
+Gradle plugin to deploy Google Cloud Run service
+- described in a [knative](https://knative.dev/)
+  [Service](https://knative.dev/docs/serving/spec/knative-api-specification-1.0/#service-2)
+  YAML file
+- using Google Cloud [Service Accout](https://cloud.google.com/iam/docs/service-accounts)  
 
-TODO service account key - why and where to get it
-(and where to put it :)
 
 TODO YAML
 
@@ -182,6 +184,7 @@ deploy.doLast {
 
 // inspired in part by the deploy-cloudrun GitHub Action
 //   see https://github.com/google-github-actions/deploy-cloudrun
+
 // authentication - see
 //   https://github.com/googleapis/google-auth-library-java#google-auth-library-oauth2-http
 // (what is ServiceAccountJwtAccessCredentials.fromStream(keyStream) for?)
@@ -205,3 +208,22 @@ deploy.doLast {
 // so I convert YAML into a JSON string and then parse it using Google's parser:
 
 Include annotated service.xml here!
+
+[Google Cloud Java Client Libraries](https://github.com/googleapis/google-cloud-java)
+
+[Google Cloud SDK](https://github.com/twistedpair/google-cloud-sdk)
+
+[gcloud run](https://github.com/twistedpair/google-cloud-sdk/tree/master/google-cloud-sdk/lib/googlecloudsdk/command_lib/run)
+- serverless_operations.py
+- stages.py
+- name_generator.py
+- config_changes.py
+
+  // metadata.labels:
+  //      serving.knative.dev/configuration: "collector"
+  //    serving.knative.dev/configurationGeneration: "83"
+  //    serving.knative.dev/service: "collector"
+
+
+gcloud run deploy
+gcloud beta services ...

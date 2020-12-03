@@ -19,6 +19,38 @@
 # --set-secrets
 # --platform
 # --connectivity
+
+
+#('Secrets', RevisionPrinter.GetSecrets(record)),
+#('Config Maps', RevisionPrinter.GetConfigMaps(record)),
+#('SQL connections', RevisionPrinter.GetCloudSqlInstances(record)),
+
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  name: {service}
+#spec:
+#  type: LoadBalancer
+#  selector:
+#    service: {service}
+#  ports:
+#    - protocol: TCP
+#      port: 8080
+#      targetPort: 8080
+
+
+#  _INGRESS_MODES = {
+#'all': 'Inbound requests from all sources are allowed.',
+#'internal':
+#    'For Cloud Run (fully managed), only inbound requests from VPC networks'
+#      ' in the same project are allowed. For Cloud Run for Anthos, only '
+#      'inbound requests from the same cluster are allowed.',
+#'internal-and-cloud-load-balancing':
+#    'Only supported for Cloud Run (fully managed). Only inbound requests'
+#      ' from VPC networks in the same project or from Google Cloud Load '
+#      'Balancing are allowed.'
+#}
+
 apiVersion: "serving.knative.dev/v1"
 kind: "Service"
 metadata:

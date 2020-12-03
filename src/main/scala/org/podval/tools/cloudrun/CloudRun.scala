@@ -10,7 +10,7 @@ import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.client.json.{JsonFactory, JsonObjectParser}
 import com.google.api.client.json.jackson2.JacksonFactory
 import com.google.api.services.run.v1.{CloudRunScopes, CloudRun => GoogleCloudRun}
-import com.google.api.services.run.v1.model.{Revision, Service}
+import com.google.api.services.run.v1.model.{Revision, Service, Status}
 import scala.collection.JavaConverters.iterableAsScalaIterableConverter
 import scala.io.Source
 
@@ -38,9 +38,23 @@ final class CloudRun(
     .namespaces().services().list(namespace)
     .execute().getItems.asScala.toList
 
+  def createService(service: Service): Service = client
+    .namespaces().services().create(namespace, service)
+    .execute()
+
   def getService(serviceName: String): Service = client
     .namespaces().services().get(s"$namespace/services/$serviceName")
     .execute()
+
+  def replaceService(serviceName: String, service: Service): Service = client
+    .namespaces().services().replaceService(s"$namespace/services/$serviceName", service)
+    .execute()
+
+  def deleteService(serviceName: String): Status = client
+    .namespaces().services().delete(s"$namespace/services/$serviceName")
+    .execute()
+
+  // TODO introduce CloudRunRevision and add appropriate methods to CloudRunService (using queries)
 
   def listRevisions: List[Revision] = client
     .namespaces().revisions().list(namespace)
@@ -50,12 +64,8 @@ final class CloudRun(
     .namespaces().revisions().get(s"$namespace/revisions/$revisionName")
     .execute()
 
-  def createService(service: Service): Service = client
-    .namespaces().services().create(namespace, service)
-    .execute()
-
-  def replaceService(serviceName: String, service: Service): Service = client
-    .namespaces().services().replaceService(s"$namespace/services/$serviceName", service)
+  def deleteRevision(revisionName: String): Status = client
+    .namespaces().revisions().delete(s"$namespace/revisions/$revisionName")
     .execute()
 }
 

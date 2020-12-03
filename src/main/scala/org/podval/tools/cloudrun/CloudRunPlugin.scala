@@ -152,15 +152,15 @@ object CloudRunPlugin {
     override protected def execute(cloudRunService: CloudRunService): Unit = {
       def log(message: String): Unit = getProject.getLogger.lifecycle(message, null, null, null)
 
-      Try(cloudRunService.getService).toOption.fold {
+      Try(cloudRunService.get).toOption.fold {
         val request: String = CloudRun.json2yaml(cloudRunService.service)
         log(s"Creating new service:\n$request\n")
-        val response: String = CloudRun.json2yaml(cloudRunService.createService)
+        val response: String = CloudRun.json2yaml(cloudRunService.create)
         log(s"Response:\n$response")
       } { _ /*previous*/ =>
         val request: String = CloudRun.json2yaml(cloudRunService.service)
         log(s"Replacing existing service:\n$request\n")
-        val response: String = CloudRun.json2yaml(cloudRunService.replaceService)
+        val response: String = CloudRun.json2yaml(cloudRunService.replace)
         log(s"Response:\n$response")
       }
     }
@@ -171,7 +171,7 @@ object CloudRunPlugin {
     group = "help"
   ) {
     override protected def execute(cloudRunService: CloudRunService): Unit =
-      getProject.getLogger.lifecycle(CloudRun.json2yaml(cloudRunService.getService))
+      getProject.getLogger.lifecycle(CloudRun.json2yaml(cloudRunService.get))
   }
 
   class GetLatestRevisionYamlTask extends ServiceTask(
