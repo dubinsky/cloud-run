@@ -4,7 +4,6 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.{Input, TaskAction}
 import org.gradle.api.{DefaultTask, Plugin, Project, Task}
 import com.google.cloud.tools.jib.gradle.{AuthParameters, JibExtension, TargetImageParameters}
-import scala.util.Try
 
 final class CloudRunPlugin extends Plugin[Project] {
 
@@ -50,13 +49,11 @@ final class CloudRunPlugin extends Plugin[Project] {
         }
 
         // see https://github.com/dubinsky/cloud-run/issues/6:
-        if (auth.getPassword == null) {
-          //      auth.setPassword(project.provider(() => extension.serviceAccountKey))
-          jibTask.doFirst((_: Task) => {
-            auth.setPassword(extension.serviceAccountKey)
-            log("CloudRun: configured 'jib.to.auth.password'.")
-          })
-        }
+        //      auth.setPassword(project.provider(() => extension.serviceAccountKey))
+        if (auth.getPassword == null) jibTask.doFirst((_: Task) => {
+          auth.setPassword(extension.serviceAccountKey)
+          log("CloudRun: configured 'jib.to.auth.password'.")
+        })
       }
     )
   }
@@ -82,7 +79,8 @@ object CloudRunPlugin {
 
     lazy val service: CloudRunService = new CloudRun(
       serviceAccountKey,
-      region = getValue(region, "region")
+      region = getValue(region, "region"),
+      logger = project.getLogger
     ).serviceForYaml(getValue(serviceYamlFilePath, "serviceYamlFilePath"))
 
     lazy val serviceAccountKey: String = {
@@ -134,21 +132,8 @@ object CloudRunPlugin {
     description = "Deploy the service to Google Cloud Run",
     group = "publishing"
   ) {
-    override protected def execute(cloudRunService: CloudRunService): Unit = {
-      def log(message: String): Unit = getProject.getLogger.lifecycle(message, null, null, null)
-
-      Try(cloudRunService.get).toOption.fold {
-        val request: String = CloudRun.json2yaml(cloudRunService.service)
-        log(s"Creating new service:\n$request\n")
-        val response: String = CloudRun.json2yaml(cloudRunService.create)
-        log(s"Response:\n$response")
-      } { previous =>
-        val request: String = CloudRun.json2yaml(cloudRunService.service)
-        log(s"Redeploying existing service:\n$request\n")
-        val response: String = CloudRun.json2yaml(cloudRunService.redeploy(previous))
-        log(s"Response:\n$response")
-      }
-    }
+    override protected def execute(cloudRunService: CloudRunService): Unit =
+      cloudRunService.deploy()
   }
 
   class GetServiceYamlTask extends ServiceTask(

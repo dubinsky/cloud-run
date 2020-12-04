@@ -214,12 +214,38 @@ Include annotated service.xml here!
 [Google Cloud SDK](https://github.com/twistedpair/google-cloud-sdk)
 
 [gcloud run](https://github.com/twistedpair/google-cloud-sdk/tree/master/google-cloud-sdk/lib/googlecloudsdk/command_lib/run)
+       [and](https://github.com/twistedpair/google-cloud-sdk/tree/master/google-cloud-sdk/lib/googlecloudsdk/command_lib/serverless)
 
-// metadata.labels:
-//    serving.knative.dev/configuration: "collector"
-//    serving.knative.dev/configurationGeneration: "83"
-//    serving.knative.dev/service: "collector"
+deploy.doLast {
+  exec {
+    standardInput new ByteArrayInputStream(gcloudServiceAccountKey.getBytes('UTF-8'))
+    commandLine 'gcloud', 'auth', 'activate-service-account', '--key-file', '-'
+  }
+}
+
+// --min-instances is in beta, so I have to use 'gcloud beta':
+exec { commandLine(
+'gcloud', 'beta',
+'run', 'deploy'  , 'collector',
+'--image'        , 'gcr.io/alter-rebbe-2/collector',
+'--platform'     , 'managed',
+'--region'       , 'us-east4',
+'--min-instances', 1,
+'--allow-unauthenticated'
+)}
+}
+
+Deploying container to Cloud Run service [collector] in project [alter-rebbe-2] region [us-east4]
+Deploying...
+Setting IAM Policy.................done
+Creating Revision....................................................................................................................................done
+Routing traffic......done
+Done.
+Service [collector] revision [collector-00088-nop] has been deployed and is serving 100 percent of traffic.
+Service URL: https://collector-rct2cheyma-uk.a.run.app
 
 
-gcloud run deploy
 gcloud beta services ...
+
+    // Note: I have no idea why gcloud run deploy adds the three-letter suffix tothe revision name,
+    // but it doe - and so do I...

@@ -9,7 +9,7 @@ plugins {
 }
 
 group = 'org.podval.tools'
-version = '0.0.9'
+version = '0.1.0'
 description = 'Configure Google Cloud Run'
 
 final String gitHubRepository = "dubinsky/cloud-run"
@@ -30,6 +30,7 @@ dependencies {
   implementation 'com.google.auth:google-auth-library-oauth2-http:0.22.0'
   implementation 'com.google.api-client:google-api-client:1.31.1'
   implementation 'com.google.apis:google-api-services-run:v1-rev20201106-1.30.10'
+  implementation 'org.slf4j:slf4j-api:1.7.30'
 
   compileOnly    'gradle.plugin.com.google.cloud.tools:jib-gradle-plugin:2.6.0'
 
@@ -160,6 +161,9 @@ pluginBundle {
   }
 }
 
+processResources.doLast {
+  new File("$buildDir/resources/main/version.txt").write(project.version.toString())
+}
 
 task upload
 upload.description('Upload artifacts and plugins')

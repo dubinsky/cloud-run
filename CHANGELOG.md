@@ -5,6 +5,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- added application version to the artifact;
+- add application name/version annotations at deploy;
+- add three-letter suffix to the revision name;
+- added StatusTracker;
+- added CloudRun.logger;
+- moved deploy() into CloudRunService;
+
+## [0.1.0] - 2020-12-03
+- 
 
 ## [0.0.9] - 2020-12-03
 - force redeployment by specifying revision name;

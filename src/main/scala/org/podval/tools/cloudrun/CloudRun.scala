@@ -11,12 +11,15 @@ import com.google.api.client.json.{JsonFactory, JsonObjectParser}
 import com.google.api.client.json.jackson2.JacksonFactory
 import com.google.api.services.run.v1.{CloudRunScopes, CloudRun => GoogleCloudRun}
 import com.google.api.services.run.v1.model.{Revision, Service, Status}
+import org.slf4j.Logger
+import java.net.URL
 import scala.collection.JavaConverters.iterableAsScalaIterableConverter
 import scala.io.Source
 
 final class CloudRun(
   serviceAccountKey: String,
-  region: String
+  region: String,
+  val logger: Logger
 ) {
   private val credentials: ServiceAccountCredentials = ServiceAccountCredentials
     .fromStream(CloudRun.string2stream(serviceAccountKey))
@@ -76,7 +79,9 @@ final class CloudRun(
 
 object CloudRun {
 
-  private val applicationName: String = "podval-google-cloud-run"
+  val applicationName: String = "org.podval.tools.cloudrun"
+
+  val applicationVersion: String = uri2string(classOf[CloudRun].getResource("/version.txt"))
 
   private def utf8: Charset = Charset.forName("UTF-8")
 
@@ -101,8 +106,11 @@ object CloudRun {
     clazz
   )
 
-  def file2string(path: String): String = {
-    val source: Source = Source.fromFile(path)
+  def file2string(path: String): String = source2string(Source.fromFile(path))
+
+  def uri2string(url: URL): String = source2string(Source.fromFile(url.toURI))
+
+  private def source2string(source: Source): String = {
     val result: String = source.getLines.mkString("\n")
     source.close()
     result
@@ -111,19 +119,3 @@ object CloudRun {
   private def string2stream(string: String): InputStream =
     new ByteArrayInputStream(string.getBytes(utf8))
 }
-
-/*
-  gcloud:
-
-  - serverless_operations.py
-    - init - staging (#148)
-    - _NewRevisionForcingChange (#412)
-    - WaitForCondition (#563)
-    - _UpdateOrCreateService (#848)
-    - _AddRevisionForcingChange (#963)
-    - ReleaseService (#984)
-
-  - config_changes.py
-  - stages.py
-  - name_generator.py
- */
