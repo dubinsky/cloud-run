@@ -10,7 +10,7 @@ import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.client.json.{JsonFactory, JsonObjectParser}
 import com.google.api.client.json.jackson2.JacksonFactory
 import com.google.api.services.run.v1.{CloudRunScopes, CloudRun => GoogleCloudRun}
-import com.google.api.services.run.v1.model.{Revision, Service, Status}
+import com.google.api.services.run.v1.model.{Revision, Route, Service, Status}
 import org.slf4j.Logger
 import scala.collection.JavaConverters.iterableAsScalaIterableConverter
 import scala.io.{Codec, Source}
@@ -56,8 +56,6 @@ final class CloudRun(
     .namespaces().services().delete(s"$namespace/services/$serviceName")
     .execute()
 
-  // TODO introduce CloudRunRevision and add appropriate methods to CloudRunService (using queries)
-
   def listRevisions: List[Revision] = client
     .namespaces().revisions().list(namespace)
     .execute().getItems.asScala.toList
@@ -68,6 +66,14 @@ final class CloudRun(
 
   def deleteRevision(revisionName: String): Status = client
     .namespaces().revisions().delete(s"$namespace/revisions/$revisionName")
+    .execute()
+
+  def listRoutes: List[Route] = client
+    .namespaces().routes().list(namespace)
+    .execute().getItems.asScala.toList
+
+  def getRoute(routeName: String): Route = client
+    .namespaces().routes().get(s"$namespace/routes/$routeName")
     .execute()
 
   def serviceForYaml(serviceYamlFilePath: String): CloudRunService = new CloudRunService(

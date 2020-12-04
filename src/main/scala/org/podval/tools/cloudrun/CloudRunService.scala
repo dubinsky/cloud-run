@@ -1,6 +1,6 @@
 package org.podval.tools.cloudrun
 
-import com.google.api.services.run.v1.model.{ObjectMeta, Revision, Service, Status}
+import com.google.api.services.run.v1.model.{ObjectMeta, Revision, Route, Service, Status}
 import org.slf4j.{Logger, LoggerFactory}
 import scala.util.Try
 
@@ -44,10 +44,17 @@ final class CloudRunService(run: CloudRun, val service: Service) {
 
     val result: Service = run.replaceService(serviceName, next)
 
-    StatusTracker.track(
-      getConditions = run.getRevision(revisionName).getStatus.getConditions,
-      logger
-    )
+
+    /*
+        ('ConfigurationsReady', progress_tracker.Stage('Creating Revision...')),
+        ('RoutesReady', progress_tracker.Stage('Routing traffic...')),
+        ('Ready', progress_tracker.Stage('Readying...'))
+     */
+    StatusTracker.track(logger, stages = Seq(
+      StatusTracker.Stage("Revision", () => run.getRevision(revisionName).getStatus.getConditions),
+//      StatusTracker.Stage("Route"   , () => getRoute.getStatus.getConditions),
+      StatusTracker.Stage("Service" , () => get     .getStatus.getConditions)
+    ))
 
     result
   }
@@ -61,6 +68,8 @@ final class CloudRunService(run: CloudRun, val service: Service) {
 
   def delete: Status = run.deleteService(serviceName)
 
+  def getRoute: Route = run.getRoute(serviceName)
+
   def getLatestRevision: Revision = run.getRevision(get.getStatus.getLatestCreatedRevisionName)
 }
 
@@ -68,14 +77,16 @@ object CloudRunService {
 
   // manual tests //
   def main(args: Array[String]): Unit = {
-    val service: CloudRunService = new CloudRun(
+    val run = new CloudRun(
       serviceAccountKey = CloudRun.file2string("/home/dub/.gradle/gcloudServiceAccountKey.json"),
       region = "us-east4",
       logger = LoggerFactory.getLogger(classOf[CloudRunService])
-    ).serviceForYaml("/home/dub/OpenTorah/opentorah.org/collector/service.yaml")
+    )
+    val service = run.serviceForYaml("/home/dub/OpenTorah/opentorah.org/collector/service.yaml")
 
 //    println(CloudRun.json2yaml(service.get))
 //    println(CloudRun.json2yaml(service.getLatestRevision))
-    println(CloudRun.json2yaml(service.redeploy(service.get)))
+//    println(CloudRun.json2yaml(service.redeploy(service.get)))
+    println(CloudRun.json2yaml(run.getRoute("collector")))
   }
 }

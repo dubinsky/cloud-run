@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - put version and description into the JAR manifest during build;
 - retrieve the version from the JAR manifest at runtime;
 - status tracker displays only the messages;
+- listing and getting of Routes;
+- multi-stage status tracking;
 
 ## [0.1.0] - 2020-12-03
 - added application version to the artifact;
