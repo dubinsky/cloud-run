@@ -11,11 +11,18 @@ object StatusTracker {
     logger: Logger,
     preStartSleepMs: Int = 500,
     sleepMs: Int = 500
+  ): Unit = {
+    if (preStartSleepMs > 0) Thread.sleep(preStartSleepMs)
+    track(getConditions, logger, sleepMs)
+  }
+
+  private def track(
+    getConditions: => java.util.List[GoogleCloudRunV1Condition],
+    logger: Logger,
+    sleepMs: Int
   ) {
     var done: Boolean = false
     var previous: Map[String, GoogleCloudRunV1Condition] = Map.empty
-
-    if (preStartSleepMs > 0) Thread.sleep(preStartSleepMs)
 
     while (!done) {
       val current: Map[String, GoogleCloudRunV1Condition] =
@@ -24,10 +31,14 @@ object StatusTracker {
       val changes: Iterable[GoogleCloudRunV1Condition] =
         current.values.filterNot(condition => previous.get(condition.getType).contains(condition))
 
-      if (changes.nonEmpty)
-        logger.warn(changes.map(toString).mkString("\n", "\n", "\n"))
+      val newMessages: Set[String] = changes.filterNot(isRetry).flatMap(condition => Option(condition.getMessage)).toSet
 
-      done = current.values.filterNot(_.getType == "Retry").forall(_.getStatus == "True")
+//      if (changes.nonEmpty)
+//        logger.warn(changes.map(toString).mkString("\n", "\n", "\n"))
+
+      if (newMessages.nonEmpty) logger.warn(newMessages.mkString("  ", "\n  ", ""))
+
+      done = current.values.filterNot(isRetry).forall(_.getStatus == "True")
 
       previous = current
 
@@ -38,6 +49,8 @@ object StatusTracker {
     val retry: Option[GoogleCloudRunV1Condition] = previous.get("Retry")
     retry.foreach(retry => logger.warn(toString(retry)))
   }
+
+  private def isRetry(condition: GoogleCloudRunV1Condition): Boolean = condition.getType == "Retry"
 
   private def toString(condition: GoogleCloudRunV1Condition): String = {
     val message: Option[String] = Option(condition.getMessage)

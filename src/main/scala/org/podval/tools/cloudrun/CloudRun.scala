@@ -12,9 +12,8 @@ import com.google.api.client.json.jackson2.JacksonFactory
 import com.google.api.services.run.v1.{CloudRunScopes, CloudRun => GoogleCloudRun}
 import com.google.api.services.run.v1.model.{Revision, Service, Status}
 import org.slf4j.Logger
-import java.net.URL
 import scala.collection.JavaConverters.iterableAsScalaIterableConverter
-import scala.io.Source
+import scala.io.{Codec, Source}
 
 final class CloudRun(
   serviceAccountKey: String,
@@ -79,9 +78,9 @@ final class CloudRun(
 
 object CloudRun {
 
-  val applicationName: String = "org.podval.tools.cloudrun"
+  val applicationName: String = getClass.getPackage.getName
 
-  val applicationVersion: String = uri2string(classOf[CloudRun].getResource("/version.txt"))
+  val applicationVersion: String = Option(getClass.getPackage.getImplementationVersion).getOrElse("unknown version")
 
   private def utf8: Charset = Charset.forName("UTF-8")
 
@@ -108,7 +107,7 @@ object CloudRun {
 
   def file2string(path: String): String = source2string(Source.fromFile(path))
 
-  def uri2string(url: URL): String = source2string(Source.fromFile(url.toURI))
+  def stream2string(stream: InputStream): String = source2string(Source.fromInputStream(stream)(new Codec(utf8)))
 
   private def source2string(source: Source): String = {
     val result: String = source.getLines.mkString("\n")
@@ -116,6 +115,5 @@ object CloudRun {
     result
   }
 
-  private def string2stream(string: String): InputStream =
-    new ByteArrayInputStream(string.getBytes(utf8))
+  private def string2stream(string: String): InputStream = new ByteArrayInputStream(string.getBytes(utf8))
 }

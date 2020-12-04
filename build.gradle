@@ -9,7 +9,7 @@ plugins {
 }
 
 group = 'org.podval.tools'
-version = '0.1.0'
+version = '0.1.1'
 description = 'Configure Google Cloud Run'
 
 final String gitHubRepository = "dubinsky/cloud-run"
@@ -50,6 +50,15 @@ dependencies {
   //   com.google.cloud.tools.jib.cache.LayerEntriesSelector$LayerEntryTemplate["sourceModificationTime"])
   // using latest *stable* version of Jackson artifacts (the same JIB itself uses):
   implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.11.3'
+}
+
+jar {
+  manifest {
+    attributes(
+      'Implementation-Title'  : project.description,
+      'Implementation-Version': project.version
+    )
+  }
 }
 
 // Gradle plugin [publishing?] plugin, if it is applied, adds tasks publishPluginJar
@@ -159,10 +168,6 @@ pluginBundle {
     groupId    = project.group
     artifactId = project.name
   }
-}
-
-processResources.doLast {
-  new File("$buildDir/resources/main/version.txt").write(project.version.toString())
 }
 
 task upload
