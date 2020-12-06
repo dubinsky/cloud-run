@@ -38,7 +38,7 @@ final class CloudRunPlugin extends Plugin[Project] {
           value: => String
         ): Unit = if (getter(jibExtension) == null) {
           setter(jibExtension, project.provider(() => value))
-          project.getLogger.lifecycle /* TODO info? */(s"CloudRun: configured '$name'.", null, null, null)
+          project.getLogger.info(s"CloudRun: configured '$name'.", null, null, null)
         }
 
         configure("jib.to.image"        ,

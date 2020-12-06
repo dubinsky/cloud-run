@@ -6,7 +6,7 @@ import scala.collection.JavaConverters.iterableAsScalaIterableConverter
 // see https://github.com/twistedpair/google-cloud-sdk/blob/9d6a1cf6238702560b22944089355eff06b5c216/google-cloud-sdk/lib/googlecloudsdk/api_lib/util/waiter.py
 final class StatusTracker(
   log: String => Unit,
-  preStartSleepMs: Int = 0,
+  preStartSleepMs: Int = 500,
   sleepMs: Int = 500,
   stages: Seq[StatusTracker.Stage]
 ) {
@@ -20,7 +20,7 @@ final class StatusTracker(
     for (thread <- threads) thread.join()
   }
 
-  final class StageTracker(stage: StatusTracker.Stage) {
+  private final class StageTracker(stage: StatusTracker.Stage) {
     private var done: Boolean = false
     private var previous: Map[String, GoogleCloudRunV1Condition] = Map.empty
 
@@ -69,7 +69,8 @@ object StatusTracker {
   ): Set[String] = current.values
     .filterNot(isRetry)
     .filterNot(condition => previous.get(condition.getType).contains(condition))
-    .flatMap(condition => Option(condition.getMessage))
+    .filterNot(_.getMessage == null)
+    .map(_.getMessage)
     .toSet
 
 //  private def toString(condition: GoogleCloudRunV1Condition): String = {

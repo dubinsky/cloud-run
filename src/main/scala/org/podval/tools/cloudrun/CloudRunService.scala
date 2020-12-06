@@ -82,5 +82,6 @@ object CloudRunService {
     ).serviceForYaml("/home/dub/OpenTorah/opentorah.org/collector/service.yaml")
 
     service.deploy()
+//    println(CloudRun.json2yaml(service.getConfiguration))
   }
 }
