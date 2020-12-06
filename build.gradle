@@ -9,7 +9,7 @@ plugins {
 }
 
 group = 'org.podval.tools'
-version = '0.1.1'
+version = '0.1.2'
 description = 'Configure Google Cloud Run'
 
 final String gitHubRepository = "dubinsky/cloud-run"
@@ -27,12 +27,12 @@ repositories {
 
 dependencies {
   implementation 'org.scala-lang:scala-library:2.12.12'
-  implementation 'com.google.auth:google-auth-library-oauth2-http:0.22.0'
+  implementation 'com.google.auth:google-auth-library-oauth2-http:0.22.1'
   implementation 'com.google.api-client:google-api-client:1.31.1'
-  implementation 'com.google.apis:google-api-services-run:v1-rev20201106-1.30.10'
+  implementation 'com.google.apis:google-api-services-run:v1-rev20201113-1.31.0'
   implementation 'org.slf4j:slf4j-api:1.7.30'
 
-  compileOnly    'gradle.plugin.com.google.cloud.tools:jib-gradle-plugin:2.6.0'
+  compileOnly    'gradle.plugin.com.google.cloud.tools:jib-gradle-plugin:2.7.0'
 
   // CloudRun plugin forces updates on a number of direct and transitive dependencies of the JIB plugin 2.6.0;
   // some of the updates break JIB, and are prevented by using compatible versions here:
@@ -42,7 +42,7 @@ dependencies {
   //   com.google.common.collect.ImmutableList.toImmutableList()Ljava/util/stream/Collector;
   implementation 'com.google.guava:guava:30.0-jre'
 
-  // latest is 2.12.12, but it breaks JIB - I get
+  // latest is 2.12.0, but it breaks JIB - I get
   //   com.google.cloud.tools.jib.plugins.common.BuildStepsExecutionException:
   //   Java 8 date/time type `java.time.Instant` not supported by default:
   //   add Module "com.fasterxml.jackson.datatype:jackson-datatype-jsr310" to enable handling
@@ -51,6 +51,9 @@ dependencies {
   // using latest *stable* version of Jackson artifacts (the same JIB itself uses):
   implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.11.3'
 }
+
+// There is no Java in the project :)
+project.gradle.startParameter.excludedTaskNames.add('compileJava')
 
 jar {
   manifest {

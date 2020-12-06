@@ -10,15 +10,14 @@ import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.client.json.{JsonFactory, JsonObjectParser}
 import com.google.api.client.json.jackson2.JacksonFactory
 import com.google.api.services.run.v1.{CloudRunScopes, CloudRun => GoogleCloudRun}
-import com.google.api.services.run.v1.model.{Revision, Route, Service, Status}
-import org.slf4j.Logger
+import com.google.api.services.run.v1.model.{Configuration, Revision, Route, Service, Status}
 import scala.collection.JavaConverters.iterableAsScalaIterableConverter
 import scala.io.{Codec, Source}
 
 final class CloudRun(
   serviceAccountKey: String,
-  region: String,
-  val logger: Logger
+  val region: String,
+  val log: String => Unit
 ) {
   private val credentials: ServiceAccountCredentials = ServiceAccountCredentials
     .fromStream(CloudRun.string2stream(serviceAccountKey))
@@ -34,7 +33,9 @@ final class CloudRun(
     .setApplicationName(CloudRun.applicationName)
     .build()
 
-  private def namespace: String = "namespaces/" + credentials.getProjectId
+  def projectId: String = credentials.getProjectId
+
+  private def namespace: String = "namespaces/" + projectId
 
   def listServices: List[Service] = client
     .namespaces().services().list(namespace)
@@ -74,6 +75,14 @@ final class CloudRun(
 
   def getRoute(routeName: String): Route = client
     .namespaces().routes().get(s"$namespace/routes/$routeName")
+    .execute()
+
+  def listConfigurations: List[Configuration] = client
+    .namespaces().configurations().list(namespace)
+    .execute().getItems.asScala.toList
+
+  def getConfiguration(configurationName: String): Configuration = client
+    .namespaces().configurations().get(s"$namespace/configurations/$configurationName")
     .execute()
 
   def serviceForYaml(serviceYamlFilePath: String): CloudRunService = new CloudRunService(

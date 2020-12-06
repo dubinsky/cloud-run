@@ -1,36 +1,22 @@
 package org.podval.tools.cloudrun
 
-import com.google.api.services.run.v1.model.{ObjectMeta, Revision, Route, Service, Status}
-import org.slf4j.{Logger, LoggerFactory}
-import scala.util.Try
+import com.google.api.services.run.v1.model.{Configuration, ObjectMeta, Revision, Route, Service}
+import org.slf4j.LoggerFactory
 
 final class CloudRunService(run: CloudRun, val service: Service) {
 
-  private def logger: Logger = run.logger
+  private def log: String => Unit = run.log
 
   private def serviceName: String = service.getMetadata.getName
 
   // container image name of the first container!
   def containerImage: String = service.getSpec.getTemplate.getSpec.getContainers.get(0).getImage
 
-  def deploy(): Unit =
-    Try(get).toOption.fold {
-      logger.warn(s"Creating new service")
-      logger.info(CloudRun.json2yaml(service))
-      logger.info(CloudRun.json2yaml(create))
-    } { previous =>
-      logger.warn(s"Redeploying existing service")
-      logger.info(CloudRun.json2yaml(service))
-      logger.info(CloudRun.json2yaml(redeploy(previous)))
-    }
+  def deploy(): Service = {
+    val previous: Option[Service] = scala.util.Try(get).toOption
+    val previousGeneration: Integer = previous.map(_.getMetadata.getGeneration).getOrElse(0)
+    val revisionName: String = f"$serviceName-${previousGeneration + 1}%05d-${ThreeLetterWord.get}"
 
-  def get: Service = run.getService(serviceName)
-
-  def create: Service = run.createService(service)
-
-  def replace: Service = run.replaceService(serviceName, service)
-
-  def redeploy(previous: Service): Service = {
     val next: Service = service.clone()
 
     // add some annotations, just as `gcloud deploy` does
@@ -39,23 +25,23 @@ final class CloudRunService(run: CloudRun, val service: Service) {
     addAnnotations(next.getSpec.getTemplate.getMetadata) // TODO why?
 
     // set revision name to force new revision even if nothing changed in the configuration
-    val revisionName: String = f"$serviceName-${previous.getMetadata.getGeneration + 1}%05d-${ThreeLetterWord.get}"
     next.getSpec.getTemplate.getMetadata.setName(revisionName)
 
-    val result: Service = run.replaceService(serviceName, next)
+    log(s"Deploying service [$serviceName] revision [$revisionName] in project [${run.projectId}] region [${run.region}].")
 
+    previous.fold(run.createService(next))(_ => run.replaceService(serviceName, next))
 
-    /*
-        ('ConfigurationsReady', progress_tracker.Stage('Creating Revision...')),
-        ('RoutesReady', progress_tracker.Stage('Routing traffic...')),
-        ('Ready', progress_tracker.Stage('Readying...'))
-     */
-    StatusTracker.track(logger, stages = Seq(
+    new StatusTracker(log, stages = Seq(
+      StatusTracker.Stage("Service ", () => get             .getStatus.getConditions),
+      StatusTracker.Stage("Route   ", () => getConfiguration.getStatus.getConditions),
       StatusTracker.Stage("Revision", () => run.getRevision(revisionName).getStatus.getConditions),
-//      StatusTracker.Stage("Route"   , () => getRoute.getStatus.getConditions),
-      StatusTracker.Stage("Service" , () => get     .getStatus.getConditions)
-    ))
+      StatusTracker.Stage("Route   ", () => getRoute        .getStatus.getConditions)
+    )).track()
 
+    log(s"Service [$serviceName] revision [$revisionName] has been deployed and is serving 100% of traffic.")
+
+    val result: Service = get
+    log(s"Service URL: ${result.getStatus.getUrl}")
     result
   }
 
@@ -66,27 +52,35 @@ final class CloudRunService(run: CloudRun, val service: Service) {
     annotations.put("client.knative.dev/user-image", containerImage) // TODO why?
   }
 
-  def delete: Status = run.deleteService(serviceName)
+  def get: Service = run.getService(serviceName)
+
+  def describe(): Unit = log(
+    "Latest Service YAML:\n" +
+    CloudRun.json2yaml(get)
+  )
+
+  def getConfiguration: Configuration = run.getConfiguration(serviceName)
 
   def getRoute: Route = run.getRoute(serviceName)
 
   def getLatestRevision: Revision = run.getRevision(get.getStatus.getLatestCreatedRevisionName)
+
+  def describeLatestRevision(): Unit = log(
+    "Latest Revision YAML:\n" +
+    CloudRun.json2yaml(getLatestRevision)
+  )
 }
 
 object CloudRunService {
 
   // manual tests //
   def main(args: Array[String]): Unit = {
-    val run = new CloudRun(
+    val service = new CloudRun(
       serviceAccountKey = CloudRun.file2string("/home/dub/.gradle/gcloudServiceAccountKey.json"),
       region = "us-east4",
-      logger = LoggerFactory.getLogger(classOf[CloudRunService])
-    )
-    val service = run.serviceForYaml("/home/dub/OpenTorah/opentorah.org/collector/service.yaml")
+      log = LoggerFactory.getLogger(classOf[CloudRunService]).warn
+    ).serviceForYaml("/home/dub/OpenTorah/opentorah.org/collector/service.yaml")
 
-//    println(CloudRun.json2yaml(service.get))
-//    println(CloudRun.json2yaml(service.getLatestRevision))
-//    println(CloudRun.json2yaml(service.redeploy(service.get)))
-    println(CloudRun.json2yaml(run.getRoute("collector")))
+    service.deploy()
   }
 }

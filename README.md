@@ -7,6 +7,8 @@ Gradle plugin to deploy Google Cloud Run service
 - using Google Cloud [Service Accout](https://cloud.google.com/iam/docs/service-accounts)  
 
 
+Minimal version of JIB supported: 2.7.0.
+
 TODO YAML
 
 ### Apply to a project ###
@@ -115,6 +117,7 @@ jib {
 
 deploy.dependsOn('jib')
 deploy.doLast {
+  // TODO maybe --impersonate-service-account instead?
   exec {
     standardInput new ByteArrayInputStream(gcloudServiceAccountKey.getBytes('UTF-8'))
     commandLine 'gcloud', 'auth', 'activate-service-account', '--key-file', '-'
@@ -234,16 +237,6 @@ exec { commandLine(
 '--allow-unauthenticated'
 )}
 }
-
-Deploying container to Cloud Run service [collector] in project [alter-rebbe-2] region [us-east4]
-Deploying...
-Setting IAM Policy.................done
-Creating Revision....................................................................................................................................done
-Routing traffic......done
-Done.
-Service [collector] revision [collector-00088-nop] has been deployed and is serving 100 percent of traffic.
-Service URL: https://collector-rct2cheyma-uk.a.run.app
-
 
 gcloud beta services ...
 

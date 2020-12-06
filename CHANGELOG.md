@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2020-12-05
+- deploy logic even for a new service;
+- track status of Configuration too (got nothing from it though);
+- track status of all polled resources in parallel;
+- updated google-auth-library-oauth2-http;
+- updated google-api-services-run;
+- updated JIB;
+- simplified JIB configuration: username and password are now settable from a Provider;
+- cleanup;
+
 ## [0.1.1] - 2020-12-04
 - put version and description into the JAR manifest during build;
 - retrieve the version from the JAR manifest at runtime;

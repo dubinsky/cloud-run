@@ -1,74 +1,83 @@
 package org.podval.tools.cloudrun
 
 import com.google.api.services.run.v1.model.GoogleCloudRunV1Condition
-import org.slf4j.Logger
 import scala.collection.JavaConverters.iterableAsScalaIterableConverter
 
 // see https://github.com/twistedpair/google-cloud-sdk/blob/9d6a1cf6238702560b22944089355eff06b5c216/google-cloud-sdk/lib/googlecloudsdk/api_lib/util/waiter.py
-object StatusTracker {
-
-  final case class Stage(
-    name: String,
-    getConditions: () => java.util.List[GoogleCloudRunV1Condition]
-  )
-
-  private val indent: String = "  "
-
-  def track(
-    logger: Logger,
-    preStartSleepMs: Int = 1000,
-    sleepMs: Int = 500,
-    stages: Seq[Stage]
-  ): Unit = {
+final class StatusTracker(
+  log: String => Unit,
+  preStartSleepMs: Int = 0,
+  sleepMs: Int = 500,
+  stages: Seq[StatusTracker.Stage]
+) {
+  def track(): Unit = {
     if (preStartSleepMs > 0) Thread.sleep(preStartSleepMs)
-    for (stage <- stages) track(logger, sleepMs, stage)
+
+    val threads: Seq[Thread] = for (stage <- stages)
+      yield new Thread(() => new StageTracker(stage).track())
+
+    for (thread <- threads) thread.start()
+    for (thread <- threads) thread.join()
   }
 
-  private def track(
-    logger: Logger,
-    sleepMs: Int,
-    stage: Stage
-  ) {
-    var done: Boolean = false
-    var previous: Map[String, GoogleCloudRunV1Condition] = Map.empty
-    logger.warn(indent + stage.name)
+  final class StageTracker(stage: StatusTracker.Stage) {
+    private var done: Boolean = false
+    private var previous: Map[String, GoogleCloudRunV1Condition] = Map.empty
 
-    while (!done) {
-      val current: Map[String, GoogleCloudRunV1Condition] = Option(stage.getConditions())
-        .getOrElse(java.util.Collections.emptyList())
-        .asScala
-        .map(condition => condition.getType -> condition)
-        .toMap
+    def track(): Unit = while (!done) {
+      val current: Map[String, GoogleCloudRunV1Condition] = stage.poll()
 
-      val newMessages: Set[String] = current.values
-        .filterNot(condition => previous.get(condition.getType).contains(condition))
-        .filterNot(isRetry)
-        .flatMap(condition => Option(condition.getMessage))
-        .toSet
-        .map(message => indent + indent + message)
+      val newMessages: Set[String] = StatusTracker.getNewMessages(previous, current)
+        .map(message => stage.name + ": " + message)
 
-      if (newMessages.nonEmpty) logger.warn(newMessages.mkString("\n"))
+      if (newMessages.nonEmpty) log(newMessages.mkString("\n"))
 
-      done = current.nonEmpty && current.values.filterNot(isRetry).forall(_.getStatus == "True")
+      // TODO is it really done if Cloud Run is retrying *something* in 10 minutes?
+      //val retry: Option[GoogleCloudRunV1Condition] = previous.get("Retry")
+      //retry.foreach(retry => logger.warn(StatusTracker.toString(retry)))
+      done = current.nonEmpty && current.values
+        .filterNot(StatusTracker.isRetry)
+        .forall(StatusTracker.isDone)
 
       previous = current
 
       if (!done) Thread.sleep(sleepMs)
     }
+  }
+}
 
-    // TODO is it really done if Cloud Run is retrying *something* in 10 minutes?
-    //val retry: Option[GoogleCloudRunV1Condition] = previous.get("Retry")
-    //retry.foreach(retry => logger.warn(toString(retry)))
+object StatusTracker {
+
+  final case class Stage(
+    name: String,
+    getConditions: () => java.util.List[GoogleCloudRunV1Condition]
+  ) {
+    def poll(): Map[String, GoogleCloudRunV1Condition] = Option(getConditions())
+      .getOrElse(java.util.Collections.emptyList())
+      .asScala
+      .map(condition => condition.getType -> condition)
+      .toMap
   }
 
-  private def isRetry(condition: GoogleCloudRunV1Condition): Boolean = condition.getType == "Retry"
+  private def isRetry(condition: GoogleCloudRunV1Condition): Boolean = condition.getType   == "Retry"
 
-  private def toString(condition: GoogleCloudRunV1Condition): String = {
-    val message: Option[String] = Option(condition.getMessage)
-    val reason: Option[String] = Option(condition.getReason)
-    val string: String =
-      message.map(message => s"[$message] ").getOrElse("") +
-      reason.map(reason => s"($reason)").getOrElse("")
-    s"${condition.getType}=${condition.getStatus} $string"
-  }
+  private def isDone (condition: GoogleCloudRunV1Condition): Boolean = condition.getStatus == "True"
+
+  private def getNewMessages(
+    previous: Map[String, GoogleCloudRunV1Condition],
+    current: Map[String, GoogleCloudRunV1Condition]
+  ): Set[String] = current.values
+    .filterNot(isRetry)
+    .filterNot(condition => previous.get(condition.getType).contains(condition))
+    .flatMap(condition => Option(condition.getMessage))
+    .toSet
+
+//  private def toString(condition: GoogleCloudRunV1Condition): String = {
+//    val message: Option[String] = Option(condition.getMessage)
+//    val reason: Option[String] = Option(condition.getReason)
+//    val string: String =
+//      message.map(message => s"[$message] ").getOrElse("") +
+//      reason.map(reason => s"($reason)").getOrElse("")
+//    s"${condition.getType}=${condition.getStatus} $string"
+//  }
 }

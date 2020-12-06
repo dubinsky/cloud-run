@@ -1,8 +1,8 @@
 package org.podval.tools.cloudrun
 
-import org.gradle.api.provider.Property
+import org.gradle.api.provider.{Property, Provider}
 import org.gradle.api.tasks.{Input, TaskAction}
-import org.gradle.api.{DefaultTask, Plugin, Project, Task}
+import org.gradle.api.{DefaultTask, Plugin, Project}
 import com.google.cloud.tools.jib.gradle.{AuthParameters, JibExtension, TargetImageParameters}
 
 final class CloudRunPlugin extends Plugin[Project] {
@@ -20,40 +20,33 @@ final class CloudRunPlugin extends Plugin[Project] {
     val deployTask: CloudRunPlugin.DeployTask =
       wireTask("cloudRunDeploy", classOf[CloudRunPlugin.DeployTask])
 
-    wireTask("cloudRunGetServiceYaml", classOf[CloudRunPlugin.GetServiceYamlTask])
-    wireTask("cloudRunGetLatestRevisionYaml", classOf[CloudRunPlugin.GetLatestRevisionYamlTask])
+    wireTask("cloudRunDescribe"              , classOf[CloudRunPlugin.DescribeTask              ])
+    wireTask("cloudRunDescribeLatestRevision", classOf[CloudRunPlugin.DescribeLatestRevisionTask])
 
     // Extension with the name 'jib' is assumed to be created by the
     // [JIB plugin](https://github.com/GoogleContainerTools/jib);
     // it is then of the type com.google.cloud.tools.jib.gradle.JibExtension, and task 'jib' exists.
     project.afterEvaluate((project: Project) =>
       Option(project.getExtensions.findByName("jib")).map(_.asInstanceOf[JibExtension]).foreach { jibExtension =>
-        def log(message: String): Unit = project.getLogger.info(message, null, null, null)
+        deployTask.dependsOn(project.getTasks.findByPath("jib"))
 
-        val jibTask = project.getTasks.findByPath("jib")
-
-        deployTask.dependsOn(jibTask)
-
-        val to: TargetImageParameters = jibExtension.getTo
-
-        if (to.getImage == null) {
-          to.setImage(project.provider(() => extension.service.containerImage))
-          log("CloudRun: configured 'jib.to.image'.")
+        // Note: both getter and setter are needed since JIB doesn't expose the properties themselves.
+        def configure(
+          name: String,
+          getter: JibExtension => String,
+          setter: (JibExtension, Provider[String]) => Unit,
+          value: => String
+        ): Unit = if (getter(jibExtension) == null) {
+          setter(jibExtension, project.provider(() => value))
+          project.getLogger.lifecycle /* TODO info? */(s"CloudRun: configured '$name'.", null, null, null)
         }
 
-        val auth: AuthParameters = to.getAuth
-
-        if (auth.getUsername == null) {
-          auth.setUsername("_json_key")
-          log("CloudRun: configured 'jib.to.auth.username'.")
-        }
-
-        // see https://github.com/dubinsky/cloud-run/issues/6:
-        //      auth.setPassword(project.provider(() => extension.serviceAccountKey))
-        if (auth.getPassword == null) jibTask.doFirst((_: Task) => {
-          auth.setPassword(extension.serviceAccountKey)
-          log("CloudRun: configured 'jib.to.auth.password'.")
-        })
+        configure("jib.to.image"        ,
+          _.getTo.getImage           , _.getTo.setImage           (_), extension.service.containerImage)
+        configure("jib.to.auth.username",
+          _.getTo.getAuth.getUsername, _.getTo.getAuth.setUsername(_), value = "_json_key"             )
+        configure("jib.to.auth.password",
+          _.getTo.getAuth.getPassword, _.getTo.getAuth.setPassword(_), extension.serviceAccountKey     )
       }
     )
   }
@@ -80,7 +73,7 @@ object CloudRunPlugin {
     lazy val service: CloudRunService = new CloudRun(
       serviceAccountKey,
       region = getValue(region, "region"),
-      logger = project.getLogger
+      log = (message: String) => project.getLogger.warn(message)
     ).serviceForYaml(getValue(serviceYamlFilePath, "serviceYamlFilePath"))
 
     lazy val serviceAccountKey: String = {
@@ -113,7 +106,8 @@ object CloudRunPlugin {
 
   abstract class ServiceTask(
     description: String,
-    group: String
+    group: String,
+    action: CloudRunService => Unit
   ) extends DefaultTask {
     setDescription(description)
     setGroup(group)
@@ -123,32 +117,24 @@ object CloudRunPlugin {
 
     @Input def getCloudRunService: Property[CloudRunService] = cloudRunService
 
-    @TaskAction final def execute(): Unit = execute(cloudRunService.get)
-
-    protected def execute(cloudRunService: CloudRunService): Unit
+    @TaskAction final def execute(): Unit = action(cloudRunService.get)
   }
 
   class DeployTask extends ServiceTask(
     description = "Deploy the service to Google Cloud Run",
-    group = "publishing"
-  ) {
-    override protected def execute(cloudRunService: CloudRunService): Unit =
-      cloudRunService.deploy()
-  }
+    group = "publishing",
+    action = _.deploy()
+  )
 
-  class GetServiceYamlTask extends ServiceTask(
-    description = "Get the service YAML from Google Cloud Run",
-    group = "help"
-  ) {
-    override protected def execute(cloudRunService: CloudRunService): Unit =
-      getProject.getLogger.lifecycle(CloudRun.json2yaml(cloudRunService.get))
-  }
+  class DescribeTask extends ServiceTask(
+    description = "Get the Service YAML from Google Cloud Run",
+    group = "help",
+    action = _.describe()
+  )
 
-  class GetLatestRevisionYamlTask extends ServiceTask(
-    description = "Get the latest revision YAML from Google Cloud Run",
-    group = "help"
-  ) {
-    override protected def execute(cloudRunService: CloudRunService): Unit =
-      getProject.getLogger.lifecycle(CloudRun.json2yaml(cloudRunService.getLatestRevision))
-  }
+  class DescribeLatestRevisionTask extends ServiceTask(
+    description = "Get the latest Revision YAML from Google Cloud Run",
+    group = "help",
+    action = _.describeLatestRevision()
+  )
 }
