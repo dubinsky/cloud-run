@@ -1,17 +1,18 @@
 package org.podval.tools.cloudrun
 
-import java.io.{ByteArrayInputStream, InputStream}
-import java.nio.charset.Charset
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.{YAMLFactory, YAMLGenerator}
 import com.google.auth.oauth2.ServiceAccountCredentials
 import com.google.auth.http.HttpCredentialsAdapter
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.client.json.{JsonFactory, JsonObjectParser}
-import com.google.api.client.json.jackson2.JacksonFactory
+import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.run.v1.{CloudRunScopes, CloudRun => GoogleCloudRun}
-import com.google.api.services.run.v1.model.{Configuration, Revision, Route, Service, Status}
-import scala.collection.JavaConverters.iterableAsScalaIterableConverter
+import com.google.api.services.run.v1.model.{Configuration, Container, Revision, Route, Service, Status}
+import java.io.{ByteArrayInputStream, InputStream}
+import java.nio.charset.Charset
+import java.math.{MathContext, RoundingMode}
+import scala.jdk.CollectionConverters.IterableHasAsScala
 import scala.io.{Codec, Source}
 
 final class CloudRun(
@@ -84,11 +85,6 @@ final class CloudRun(
   def getConfiguration(configurationName: String): Configuration = client
     .namespaces().configurations().get(s"$namespace/configurations/$configurationName")
     .execute()
-
-  def serviceForYaml(serviceYamlFilePath: String): CloudRunService = new CloudRunService(
-    run = this,
-    service = CloudRun.json2object(classOf[Service], CloudRun.yaml2json(serviceYamlFilePath))
-  )
 }
 
 object CloudRun {
@@ -97,15 +93,37 @@ object CloudRun {
 
   val applicationVersion: String = Option(getClass.getPackage.getImplementationVersion).getOrElse("unknown version")
 
+  def getServiceName(service: Service): String = service.getMetadata.getName
+
+  def getContainerImage(service: Service): String = getFirstContainer(service).getImage
+
+  private val mathContext: MathContext = new MathContext(3, RoundingMode.HALF_UP)
+
+  def getCpu(service: Service): Float = getResourceLimit(service, "cpu").fold(1.0f) { cpuStr =>
+    val result: Double = if (cpuStr.endsWith("m")) cpuStr.init.toFloat / 1000.0 else cpuStr.toFloat
+    BigDecimal(result, mathContext).floatValue
+  }
+
+  def getMemory(service: Service): String = getResourceLimit(service, "memory").get
+
+  def getResourceLimit(service: Service, name: String): Option[String] =
+    Option(getFirstContainer(service).getResources.getLimits.get(name))
+
+  def getFirstContainer(service: Service): Container =
+    service.getSpec.getTemplate.getSpec.getContainers.get(0)
+
   private def utf8: Charset = Charset.forName("UTF-8")
 
-  private def jsonFactory: JsonFactory = JacksonFactory.getDefaultInstance
+  private def jsonFactory: JsonFactory = GsonFactory.getDefaultInstance
 
   private def yamlObjectMapper: ObjectMapper = {
     val yamlFactory: YAMLFactory = new YAMLFactory
     yamlFactory.disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER) // suppress leading "---"
     new ObjectMapper(yamlFactory)
   }
+
+  def yaml2service(serviceYamlFilePath: String): Service =
+    json2object(classOf[Service], yaml2json(serviceYamlFilePath))
 
   def yaml2json(yamlFilePath: String): String = yamlObjectMapper
     .readTree(file2string(yamlFilePath))
@@ -125,7 +143,7 @@ object CloudRun {
   def stream2string(stream: InputStream): String = source2string(Source.fromInputStream(stream)(new Codec(utf8)))
 
   private def source2string(source: Source): String = {
-    val result: String = source.getLines.mkString("\n")
+    val result: String = source.getLines().mkString("\n")
     source.close()
     result
   }

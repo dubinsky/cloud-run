@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2021-01-31
+- Scala 2.13;
+- update dependencies and Gradle;
+- CloudRunPlugin.RunLocalTask and its pre-configured instance `cloudRunLocal`;
+- port and additional Docker options are configurable;
+
 ## [0.1.3] - 2020-12-06
 - minor cleanup;
 

@@ -1,33 +1,30 @@
 package org.podval.tools.cloudrun
 
-import org.gradle.api.provider.{Property, Provider}
+import org.gradle.api.provider.{ListProperty, Property, Provider}
 import org.gradle.api.tasks.{Input, TaskAction}
 import org.gradle.api.{DefaultTask, Plugin, Project}
-import com.google.cloud.tools.jib.gradle.{AuthParameters, JibExtension, TargetImageParameters}
+import com.google.api.services.run.v1.model.Service
+import com.google.cloud.tools.jib.gradle.JibExtension
+import org.gradle.process.ExecSpec
+import scala.jdk.CollectionConverters.{ListHasAsScala, SeqHasAsJava}
 
 final class CloudRunPlugin extends Plugin[Project] {
 
   def apply(project: Project): Unit = {
-    val extension: CloudRunPlugin.Extension =
-      project.getExtensions.create("cloudRun", classOf[CloudRunPlugin.Extension], project)
+    val extension = project.getExtensions.create(CloudRunPlugin.extensionName, classOf[CloudRunPlugin.Extension], project)
 
-    def wireTask[T <: CloudRunPlugin.ServiceTask](name: String, clazz: Class[T]): T = {
-      val result: T = project.getTasks.create[T](name, clazz)
-      result.getCloudRunService.set(project.provider(() => extension.service))
-      result
-    }
-
-    val deployTask: CloudRunPlugin.DeployTask =
-      wireTask("cloudRunDeploy", classOf[CloudRunPlugin.DeployTask])
-
-    wireTask("cloudRunDescribe"              , classOf[CloudRunPlugin.DescribeTask              ])
-    wireTask("cloudRunDescribeLatestRevision", classOf[CloudRunPlugin.DescribeLatestRevisionTask])
+    val runLocalTask = project.getTasks.create("cloudRunLocal", classOf[CloudRunPlugin.RunLocalTask])
+    val deployTask = project.getTasks.create("cloudRunDeploy", classOf[CloudRunPlugin.DeployTask])
+    project.getTasks.create("cloudRunDescribe", classOf[CloudRunPlugin.DescribeTask])
+    project.getTasks.create("cloudRunDescribeLatestRevision", classOf[CloudRunPlugin.DescribeLatestRevisionTask])
 
     // Extension with the name 'jib' is assumed to be created by the
     // [JIB plugin](https://github.com/GoogleContainerTools/jib);
     // it is then of the type com.google.cloud.tools.jib.gradle.JibExtension, and task 'jib' exists.
     project.afterEvaluate((project: Project) =>
       Option(project.getExtensions.findByName("jib")).map(_.asInstanceOf[JibExtension]).foreach { jibExtension =>
+        runLocalTask.dependsOn(project.getTasks.findByPath("jibDockerBuild"))
+
         deployTask.dependsOn(project.getTasks.findByPath("jib"))
 
         // Note: both getter and setter are needed since JIB doesn't expose the properties themselves.
@@ -42,11 +39,11 @@ final class CloudRunPlugin extends Plugin[Project] {
         }
 
         configure("jib.to.image"        ,
-          _.getTo.getImage           , _.getTo.setImage           (_), extension.service.containerImage)
+          _.getTo.getImage           , _.getTo.setImage           (_), extension.getContainerImage)
         configure("jib.to.auth.username",
-          _.getTo.getAuth.getUsername, _.getTo.getAuth.setUsername(_), value = "_json_key"             )
+          _.getTo.getAuth.getUsername, _.getTo.getAuth.setUsername(_), value = "_json_key"        )
         configure("jib.to.auth.password",
-          _.getTo.getAuth.getPassword, _.getTo.getAuth.setPassword(_), extension.serviceAccountKey     )
+          _.getTo.getAuth.getPassword, _.getTo.getAuth.setPassword(_), extension.serviceAccountKey)
       }
     )
   }
@@ -54,11 +51,20 @@ final class CloudRunPlugin extends Plugin[Project] {
 
 object CloudRunPlugin {
 
+  private val extensionName: String = "cloudRun"
+
   private val serviceAccountKeyPropertyDefault: String = "gcloudServiceAccountKey"
+
+  private def getExtension(project: Project): Extension =
+    project.getExtensions.getByName(extensionName).asInstanceOf[Extension]
 
   // Extension and Task classes are not final so that Gradle could create decorated instances.
 
   class Extension(project: Project) {
+    private val serviceYamlFilePath: Property[String] = project.getObjects.property(classOf[String])
+    def getServiceYamlFilePath: Property[String] = serviceYamlFilePath
+    serviceYamlFilePath.set(s"${project.getProjectDir}/service.yaml")
+
     private val region: Property[String] = project.getObjects.property(classOf[String])
     def getRegion: Property[String] = region
 
@@ -66,15 +72,13 @@ object CloudRunPlugin {
     def getServiceAccountKeyProperty: Property[String] = serviceAccountKeyProperty
     serviceAccountKeyProperty.set(serviceAccountKeyPropertyDefault)
 
-    private val serviceYamlFilePath: Property[String] = project.getObjects.property(classOf[String])
-    def getServiceYamlFilePath: Property[String] = serviceYamlFilePath
-    serviceYamlFilePath.set(s"${project.getProjectDir}/service.yaml")
+    private val service: Service =
+      CloudRun.yaml2service(getValue(serviceYamlFilePath, "serviceYamlFilePath"))
 
-    lazy val service: CloudRunService = new CloudRun(
-      serviceAccountKey,
-      region = getValue(region, "region"),
-      log = (message: String) => project.getLogger.warn(message)
-    ).serviceForYaml(getValue(serviceYamlFilePath, "serviceYamlFilePath"))
+    def getServiceName   : String = CloudRun.getServiceName   (service)
+    def getContainerImage: String = CloudRun.getContainerImage(service)
+    def getCpu           : Float  = CloudRun.getCpu           (service)
+    def getMemory        : String = CloudRun.getMemory        (service)
 
     lazy val serviceAccountKey: String = {
       val keyProperty: String = getValue(serviceAccountKeyProperty, "serviceAccountKeyProperty")
@@ -97,6 +101,15 @@ object CloudRunPlugin {
         ))
     }
 
+    def cloudRunService: CloudRunService = new CloudRunService(
+      run = new CloudRun(
+        serviceAccountKey,
+        region = getValue(region, "region"),
+        log = (message: String) => project.getLogger.warn(message)
+      ),
+      service = service
+    )
+
     private def getValue(property: Property[String], name: String): String = {
       val result: String = property.get()
       if (result.isEmpty) throw new IllegalArgumentException(s"$name is not set!")
@@ -104,37 +117,55 @@ object CloudRunPlugin {
     }
   }
 
-  abstract class ServiceTask(
-    description: String,
-    group: String,
-    action: CloudRunService => Unit
-  ) extends DefaultTask {
-    setDescription(description)
-    setGroup(group)
+  class DeployTask extends DefaultTask {
+    setDescription("Deploy the service to Google Cloud Run")
+    setGroup("publishing")
 
-    private val cloudRunService: Property[CloudRunService] =
-      getProject.getObjects.property(classOf[CloudRunService])
-
-    @Input def getCloudRunService: Property[CloudRunService] = cloudRunService
-
-    @TaskAction final def execute(): Unit = action(cloudRunService.get)
+    @TaskAction final def execute(): Unit = getExtension(getProject).cloudRunService.deploy()
   }
 
-  class DeployTask extends ServiceTask(
-    description = "Deploy the service to Google Cloud Run",
-    group = "publishing",
-    action = _.deploy()
-  )
+  class DescribeTask extends DefaultTask {
+    setDescription("Get the Service YAML from Google Cloud Run")
+    setGroup("help")
 
-  class DescribeTask extends ServiceTask(
-    description = "Get the Service YAML from Google Cloud Run",
-    group = "help",
-    action = _.describe()
-  )
+    @TaskAction final def execute(): Unit = getExtension(getProject).cloudRunService.describe()
+  }
 
-  class DescribeLatestRevisionTask extends ServiceTask(
-    description = "Get the latest Revision YAML from Google Cloud Run",
-    group = "help",
-    action = _.describeLatestRevision()
-  )
+  class DescribeLatestRevisionTask extends DefaultTask {
+    setDescription("Get the latest Revision YAML from Google Cloud Run")
+    setGroup("help")
+
+    @TaskAction final def execute(): Unit = getExtension(getProject).cloudRunService.describeLatestRevision()
+  }
+
+  class RunLocalTask extends DefaultTask {
+    setDescription("Run Cloud Run service in the local Docker")
+    setGroup("publishing")
+
+    private val port: Property[Integer] = getProject.getObjects.property(classOf[Integer])
+    @Input def getPort: Property[Integer] = port
+    port.set(8080)
+
+    private val additionalOptions: ListProperty[String] = getProject.getObjects.listProperty(classOf[String])
+    @Input def getAdditionalOptions: ListProperty[String] = additionalOptions
+    additionalOptions.set(Seq.empty[String].asJava)
+
+    @TaskAction final def execute(): Unit = {
+      val extension: Extension = getExtension(getProject)
+      val commandLine: Seq[String] = List(
+        "docker"   ,
+        "run"      ,
+        "--name"   , extension.getServiceName,
+        "--rm"     ,
+        "--cpus"   , extension.getCpu.toString,
+        "--memory" , extension.getMemory,
+        "--env"    , "PORT=8080",
+        "--publish", port.get().toString + ":8080"
+      ) ++ additionalOptions.get.asScala ++  Seq(
+        extension.getContainerImage
+      )
+      getLogger.lifecycle(s"Running: ${commandLine.mkString(" ")}")
+      getProject.exec((execSpec: ExecSpec) => execSpec.setCommandLine(commandLine.asJava))
+    }
+  }
 }
