@@ -4,24 +4,23 @@ plugins {
   id 'java-library'
   id 'java-gradle-plugin'
   id 'maven-publish'
-  id 'com.jfrog.bintray' version '1.8.5'
+  id 'signing'
+  //id 'io.codearte.nexus-staging' version '0.22.0' ? or something else that gets credentials from maven-publish?
   id 'com.gradle.plugin-publish' version '0.12.0'
 }
 
 group = 'org.podval.tools'
-version = '0.1.4'
+version = '0.1.5'
 description = 'Deploy Service to Google Cloud Run'
 
 final String gitHubRepository = "dubinsky/cloud-run"
 final String gitHubRepositoryUrl = "https://github.com/$gitHubRepository"
 final String orgName = 'Podval Group'
 final String orgUrl = 'http://www.podval.org'
-final List<String> projectTags = ['Gradle', 'Google', 'CloudRun', 'JIB']
+final List<String> projectTags = ['Gradle', 'Google', 'CloudRun', 'JIB', 'Docker']
 
 repositories {
-  jcenter()
   mavenCentral()
-  mavenLocal()
   gradlePluginPortal() // for JIB
 }
 
@@ -67,16 +66,32 @@ task sourceJar(type: Jar) {
   archiveClassifier.set('sources')
 }
 
+task scaladocJar(type: Jar) {
+  from scaladoc.destinationDir
+  archiveClassifier.set('javadoc')
+}
+scaladocJar.dependsOn scaladoc
+
 publishing {
+  repositories {
+    maven {
+      name = 'mavenCentral'
+      url = version.endsWith('SNAPSHOT') ?
+        'https://oss.sonatype.org/content/repositories/snapshots' :
+        'https://oss.sonatype.org/service/local/staging/deploy/maven2'
+
+      credentials {
+        username = mavenCentralUsername
+        password = mavenCentralPassword
+      }
+    }
+  }
+
   publications {
-    bintrayMavenPublication(MavenPublication) {
-      groupId    project.group
-      artifactId project.name
-      version    project.version
-
+    library(MavenPublication) {
       from components.java
-
       artifact sourceJar
+      artifact scaladocJar
 
       pom {
         name = project.name
@@ -115,32 +130,14 @@ publishing {
   }
 }
 
-bintray {
-  user         = 'dubinsky'
-  key          = findProperty('bintrayApiKey') ?: System.getenv('bintrayApiKey')
-  publications = ['bintrayMavenPublication']
-  dryRun       = false
-  publish      = true
-  override     = true
-  pkg {
-    repo                  = 'org.podval'
-    name                  = project.name
-    desc                  = project.description
-    websiteUrl            = gitHubRepositoryUrl
-    issueTrackerUrl       = "${gitHubRepositoryUrl}/issues"
-    vcsUrl                = "${gitHubRepositoryUrl}.git"
-    githubRepo            = gitHubRepository
-    licenses              = ['Apache-2.0']
-    labels                = projectTags
-    publicDownloadNumbers = true
-    githubReleaseNotesFile= 'CHANGELOG.md'
-    version { name        = project.version }
-  }
+signing {
+  useInMemoryPgpKeys(getProperty('gnupg.dub-podval-org.key'), getProperty('gnupg.dub-podval-org.password'))
+  sign publishing.publications.library
 }
 
 gradlePlugin {
   plugins {
-    cloudRunPlugin {
+    cloudRun {
       id = project.name
       implementationClass = 'org.podval.tools.cloudrun.CloudRunPlugin'
     }
@@ -168,9 +165,13 @@ pluginBundle {
   }
 }
 
+task uploadLibrary
+uploadLibrary.description('Upload artifacts')
+uploadLibrary.group('publishing')
+uploadLibrary.dependsOn(publishLibraryPublicationToMavenCentralRepository)
+
 task upload
 upload.description('Upload artifacts and plugins')
 upload.group('publishing')
-
-upload.dependsOn(bintrayUpload)
+upload.dependsOn(uploadLibrary)
 upload.dependsOn(publishPlugins)
