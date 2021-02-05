@@ -46,9 +46,6 @@ tasks.withType(ScalaCompile) {
   }
 }
 
-// There is no Java in the project :)
-project.gradle.startParameter.excludedTaskNames.add('compileJava')
-
 jar {
   manifest {
     attributes(
@@ -61,16 +58,25 @@ jar {
 // Gradle plugin [publishing?] plugin, if it is applied, adds tasks publishPluginJar
 // and publishPluginJavaDocsJar that create sources and javadoc archives;
 // attempts to use them as artifacts in the Maven publication failed, so I make my own.
-task sourceJar(type: Jar) {
+task sourcesJar(type: Jar) {
   from sourceSets.main.allSource
   archiveClassifier.set('sources')
 }
 
 task scaladocJar(type: Jar) {
   from scaladoc.destinationDir
-  archiveClassifier.set('javadoc')
+  archiveClassifier.set('scaladoc')
 }
 scaladocJar.dependsOn scaladoc
+
+// There is no Java in the project :)
+project.gradle.startParameter.excludedTaskNames.add('compileJava')
+// but Maven Central requires javadoc JAR...
+task javadocJar(type: Jar) {
+  from javadoc.destinationDir
+  archiveClassifier.set('javadoc')
+}
+javadocJar.dependsOn(javadoc)
 
 publishing {
   repositories {
@@ -90,8 +96,9 @@ publishing {
   publications {
     library(MavenPublication) {
       from components.java
-      artifact sourceJar
+      artifact sourcesJar
       artifact scaladocJar
+      artifact javadocJar
 
       pom {
         name = project.name
