@@ -149,7 +149,7 @@ pluginBundle {
   vcsUrl  = gitHubRepositoryUrl //.git' ?
 
   plugins {
-    cloudRunPlugin {
+    cloudRun {
       displayName = project.description
       description = project.description
       tags        = projectTags
