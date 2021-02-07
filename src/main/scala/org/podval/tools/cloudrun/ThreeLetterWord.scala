@@ -21,6 +21,16 @@ object ThreeLetterWord {
    *
    * Inspired by https://github.com/twistedpair/google-cloud-sdk/blob/master/google-cloud-sdk/lib/googlecloudsdk/command_lib/run/name_generator.py
    */
+  def get(validate: Boolean): String = if (validate) getValid else get
+
+  @tailrec
+  private def getValid: String = {
+    val result: String = get
+    if (!invalid.contains(result)) result else getValid
+  }
+
+  private def get: String = Seq(random(consonants), random(vowels), random(consonants)).mkString
+
   private val invalid: Set[String] = Set(
     "bah", "baj", "bal", "bam", "bar", "beh", "bew", "bez", "bic", "bin", "bod", "bok", "bol", "bon", "bow", "box",
     "bun", "bur", "bus", "cac", "cak", "caq", "cin", "coc", "cok", "con", "coq", "coz", "cuk", "cul", "cum", "cun",
@@ -41,17 +51,8 @@ object ThreeLetterWord {
   )
 
   private val vowels: String = "aeiou"
+
   private val consonants: String = "bcdfghjklmnpqrstvwxyz"
 
   private def random(what: String): Char = what(Random.nextInt(what.length))
-
-  def get(validate: Boolean): String = if (validate) getValid else get
-
-  @tailrec
-  def getValid: String = {
-    val result: String = get
-    if (!invalid.contains(result)) result else getValid
-  }
-
-  def get: String = Seq(random(consonants), random(vowels), random(consonants)).mkString
 }

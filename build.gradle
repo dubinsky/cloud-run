@@ -5,24 +5,18 @@ plugins {
   id 'java-gradle-plugin'
   id 'maven-publish'
   id 'signing'
-  //id 'io.codearte.nexus-staging' version '0.22.0' ? or something else that gets credentials from maven-publish?
   id 'com.gradle.plugin-publish' version '0.12.0'
 }
 
-group = 'org.podval.tools'
-version = '0.1.5'
 description = 'Deploy Service to Google Cloud Run'
+group = 'org.podval.tools'
+version = '0.2.0'
 
 final String gitHubRepository = "dubinsky/cloud-run"
 final String gitHubRepositoryUrl = "https://github.com/$gitHubRepository"
 final String orgName = 'Podval Group'
 final String orgUrl = 'http://www.podval.org'
 final List<String> projectTags = ['Gradle', 'Google', 'CloudRun', 'JIB', 'Docker']
-
-repositories {
-  mavenCentral()
-  gradlePluginPortal() // for JIB
-}
 
 dependencies {
   implementation 'org.scala-lang:scala-library:2.13.4'
@@ -32,12 +26,11 @@ dependencies {
   implementation 'org.slf4j:slf4j-api:1.7.30'
   implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.12.1'
 
-  compileOnly    'gradle.plugin.com.google.cloud.tools:jib-gradle-plugin:2.7.1'
-
-  // by default, -android version gets dragged in and breaks JIB - I get
-  //   java.lang.NoSuchMethodError
+  // by default, -android version gets dragged in and breaks JIB - I get java.lang.NoSuchMethodError
   //   com.google.common.collect.ImmutableList.toImmutableList()Ljava/util/stream/Collector;
   implementation 'com.google.guava:guava:30.1-jre'
+
+  compileOnly    'gradle.plugin.com.google.cloud.tools:jib-gradle-plugin:2.7.1'
 }
 
 tasks.withType(ScalaCompile) {
@@ -55,9 +48,6 @@ jar {
   }
 }
 
-// Gradle plugin [publishing?] plugin, if it is applied, adds tasks publishPluginJar
-// and publishPluginJavaDocsJar that create sources and javadoc archives;
-// attempts to use them as artifacts in the Maven publication failed, so I make my own.
 task sourcesJar(type: Jar) {
   from sourceSets.main.allSource
   archiveClassifier.set('sources')
@@ -86,10 +76,8 @@ publishing {
         'https://oss.sonatype.org/content/repositories/snapshots' :
         'https://oss.sonatype.org/service/local/staging/deploy/maven2'
 
-      credentials {
-        username = mavenCentralUsername
-        password = mavenCentralPassword
-      }
+      // Note: this will use mavenCentralUsername and mavenCentralPassword properties - if they are available
+      credentials(PasswordCredentials)
     }
   }
 

@@ -1,1 +1,8 @@
 rootProject.name = 'org.podval.tools.cloudrun'
+
+dependencyResolutionManagement {
+  repositories {
+    mavenCentral()
+    gradlePluginPortal() // for JIB
+  }
+}

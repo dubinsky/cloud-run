@@ -5,21 +5,26 @@ import com.fasterxml.jackson.dataformat.yaml.{YAMLFactory, YAMLGenerator}
 import com.google.auth.oauth2.ServiceAccountCredentials
 import com.google.auth.http.HttpCredentialsAdapter
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
+import com.google.api.client.googleapis.services.AbstractGoogleClientRequest
 import com.google.api.client.json.{JsonFactory, JsonObjectParser}
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.run.v1.{CloudRunScopes, CloudRun => GoogleCloudRun}
-import com.google.api.services.run.v1.model.{Configuration, Container, Revision, Route, Service, Status}
+import com.google.api.services.run.v1.model.{Configuration, Revision, Route, Service, Status}
+import org.podval.tools.cloudrun.ServiceExtender.Operations
+import org.slf4j.Logger
 import java.io.{ByteArrayInputStream, InputStream}
 import java.nio.charset.Charset
-import java.math.{MathContext, RoundingMode}
 import scala.jdk.CollectionConverters.IterableHasAsScala
-import scala.io.{Codec, Source}
+import scala.io.Source
 
+// Note: see https://github.com/googleapis/google-cloud-java
 final class CloudRun(
   serviceAccountKey: String,
   val region: String,
-  val log: String => Unit
+  val log: Logger
 ) {
+  // Note: see https://github.com/googleapis/google-auth-library-java#google-auth-library-oauth2-http
+  // (what is ServiceAccountJwtAccessCredentials.fromStream(keyStream) for?)
   private val credentials: ServiceAccountCredentials = ServiceAccountCredentials
     .fromStream(CloudRun.string2stream(serviceAccountKey))
     .createScoped(CloudRunScopes.all)
@@ -28,6 +33,7 @@ final class CloudRun(
   private val client: GoogleCloudRun = new GoogleCloudRun.Builder(
     GoogleNetHttpTransport.newTrustedTransport,
     CloudRun.jsonFactory,
+    // Note: see https://github.com/googleapis/google-auth-library-java#using-credentials-with-google-http-client
     new HttpCredentialsAdapter(credentials)
   )
     .setRootUrl(s"https://$region-run.googleapis.com")
@@ -38,53 +44,50 @@ final class CloudRun(
 
   private def namespace: String = "namespaces/" + projectId
 
-  def listServices: List[Service] = client
-    .namespaces().services().list(namespace)
-    .execute().getItems.asScala.toList
+  def listServices: List[Service] =
+    getList(_.services().list(namespace))(_.getItems)
 
-  def createService(service: Service): Service = client
-    .namespaces().services().create(namespace, service)
-    .execute()
+  def createService(service: Service): Service =
+    get(_.services().create(namespace, service))
 
-  def getService(serviceName: String): Service = client
-    .namespaces().services().get(s"$namespace/services/$serviceName")
-    .execute()
+  def getService(serviceName: String): Service =
+    get(_.services().get(s"$namespace/services/$serviceName"))
 
-  def replaceService(serviceName: String, service: Service): Service = client
-    .namespaces().services().replaceService(s"$namespace/services/$serviceName", service)
-    .execute()
+  def replaceService(service: Service): Service =
+    get(_.services().replaceService(s"$namespace/services/${service.name}", service))
 
-  def deleteService(serviceName: String): Status = client
-    .namespaces().services().delete(s"$namespace/services/$serviceName")
-    .execute()
+  def deleteService(serviceName: String): Status =
+    get(_.services().delete(s"$namespace/services/$serviceName"))
 
-  def listRevisions: List[Revision] = client
-    .namespaces().revisions().list(namespace)
-    .execute().getItems.asScala.toList
+  def listRevisions: List[Revision] =
+    getList(_.revisions().list(namespace))(_.getItems)
 
-  def getRevision(revisionName: String): Revision = client
-    .namespaces().revisions().get(s"$namespace/revisions/$revisionName")
-    .execute()
+  def getRevision(revisionName: String): Revision =
+    get(_.revisions().get(s"$namespace/revisions/$revisionName"))
 
-  def deleteRevision(revisionName: String): Status = client
-    .namespaces().revisions().delete(s"$namespace/revisions/$revisionName")
-    .execute()
+  def deleteRevision(revisionName: String): Status =
+    get(_.revisions().delete(s"$namespace/revisions/$revisionName"))
 
-  def listRoutes: List[Route] = client
-    .namespaces().routes().list(namespace)
-    .execute().getItems.asScala.toList
+  def listRoutes: List[Route] =
+    getList(_.routes().list(namespace))(_.getItems)
 
-  def getRoute(routeName: String): Route = client
-    .namespaces().routes().get(s"$namespace/routes/$routeName")
-    .execute()
+  def getRoute(routeName: String): Route =
+    get(_.routes().get(s"$namespace/routes/$routeName"))
 
-  def listConfigurations: List[Configuration] = client
-    .namespaces().configurations().list(namespace)
-    .execute().getItems.asScala.toList
+  def listConfigurations: List[Configuration] =
+    getList(_.configurations().list(namespace))(_.getItems)
 
-  def getConfiguration(configurationName: String): Configuration = client
-    .namespaces().configurations().get(s"$namespace/configurations/$configurationName")
-    .execute()
+  def getConfiguration(configurationName: String): Configuration =
+    get(_.configurations().get(s"$namespace/configurations/$configurationName"))
+
+  private def getList[R, T](
+    request: GoogleCloudRun#Namespaces => AbstractGoogleClientRequest[R])(
+    items: R => java.util.List[T]
+  ): List[T] =
+    items(get(request)).asScala.toList
+
+  private def get[T](request: GoogleCloudRun#Namespaces => AbstractGoogleClientRequest[T]): T =
+    request(client.namespaces()).execute()
 }
 
 object CloudRun {
@@ -93,28 +96,26 @@ object CloudRun {
 
   val applicationVersion: String = Option(getClass.getPackage.getImplementationVersion).getOrElse("unknown version")
 
-  def getServiceName(service: Service): String = service.getMetadata.getName
+  private def jsonFactory: JsonFactory = GsonFactory.getDefaultInstance
 
-  def getContainerImage(service: Service): String = getFirstContainer(service).getImage
+  // Note: when parsing Service YAML, objectMapper.readValue(inputStream, classOf[Service]) throws
+  //   java.lang.IllegalArgumentException:
+  //   Can not set com.google.api.services.run.v1.model.ObjectMeta field
+  //   com.google.api.services.run.v1.model.Service.metadata to java.util.LinkedHashMap
+  // so I convert YAML into a JSON string and then parse it using Google's parser:
+  def yamlFile2[T](clazz: Class[T], yamlFilePath: String): T = {
+    val json: String = yamlObjectMapper
+      .readTree(file2string(yamlFilePath))
+      .toString
 
-  private val mathContext: MathContext = new MathContext(3, RoundingMode.HALF_UP)
-
-  def getCpu(service: Service): Float = getResourceLimit(service, "cpu").fold(1.0f) { cpuStr =>
-    val result: Double = if (cpuStr.endsWith("m")) cpuStr.init.toFloat / 1000.0 else cpuStr.toFloat
-    BigDecimal(result, mathContext).floatValue
+    new JsonObjectParser(jsonFactory).parseAndClose(
+      string2stream(json),
+      utf8,
+      clazz
+    )
   }
 
-  def getMemory(service: Service): String = getResourceLimit(service, "memory").get
-
-  def getResourceLimit(service: Service, name: String): Option[String] =
-    Option(getFirstContainer(service).getResources.getLimits.get(name))
-
-  def getFirstContainer(service: Service): Container =
-    service.getSpec.getTemplate.getSpec.getContainers.get(0)
-
-  private def utf8: Charset = Charset.forName("UTF-8")
-
-  private def jsonFactory: JsonFactory = GsonFactory.getDefaultInstance
+  def json2yaml(value: AnyRef): String = yamlObjectMapper.writeValueAsString(value)
 
   private def yamlObjectMapper: ObjectMapper = {
     val yamlFactory: YAMLFactory = new YAMLFactory
@@ -122,25 +123,9 @@ object CloudRun {
     new ObjectMapper(yamlFactory)
   }
 
-  def yaml2service(serviceYamlFilePath: String): Service =
-    json2object(classOf[Service], yaml2json(serviceYamlFilePath))
-
-  def yaml2json(yamlFilePath: String): String = yamlObjectMapper
-    .readTree(file2string(yamlFilePath))
-    .toString
-
-  def json2yaml(value: AnyRef): String = yamlObjectMapper
-    .writeValueAsString(value)
-
-  def json2object[T](clazz: Class[T], json: String): T = new JsonObjectParser(jsonFactory).parseAndClose(
-    string2stream(json),
-    utf8,
-    clazz
-  )
-
   def file2string(path: String): String = source2string(Source.fromFile(path))
 
-  def stream2string(stream: InputStream): String = source2string(Source.fromInputStream(stream)(new Codec(utf8)))
+  // def stream2string(stream: InputStream): String = source2string(Source.fromInputStream(stream)(new Codec(utf8)))
 
   private def source2string(source: Source): String = {
     val result: String = source.getLines().mkString("\n")
@@ -149,4 +134,6 @@ object CloudRun {
   }
 
   private def string2stream(string: String): InputStream = new ByteArrayInputStream(string.getBytes(utf8))
+
+  private def utf8: Charset = Charset.forName("UTF-8")
 }
