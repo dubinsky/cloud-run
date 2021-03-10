@@ -1,11 +1,11 @@
 plugins {
-  id 'com.github.ben-manes.versions' version '0.36.0'
+  id 'com.github.ben-manes.versions' version '0.38.0'
   id 'scala'
   id 'java-library'
   id 'java-gradle-plugin'
   id 'maven-publish'
   id 'signing'
-  id 'com.gradle.plugin-publish' version '0.12.0'
+  id 'com.gradle.plugin-publish' version '0.13.0'
 }
 
 description = 'Deploy Service to Google Cloud Run'
@@ -19,18 +19,18 @@ final String orgUrl = 'http://www.podval.org'
 final List<String> projectTags = ['Gradle', 'Google', 'CloudRun', 'JIB', 'Docker']
 
 dependencies {
-  implementation 'org.scala-lang:scala-library:2.13.4'
-  implementation 'com.google.auth:google-auth-library-oauth2-http:0.23.0'
-  implementation 'com.google.api-client:google-api-client:1.31.2'
-  implementation 'com.google.apis:google-api-services-run:v1-rev20201113-1.31.0'
+  implementation 'org.scala-lang:scala-library:2.13.5'
+  implementation 'com.google.auth:google-auth-library-oauth2-http:0.24.1'
+  implementation 'com.google.api-client:google-api-client:1.31.3'
+  implementation 'com.google.apis:google-api-services-run:v1-rev20210301-1.31.0'
   implementation 'org.slf4j:slf4j-api:1.7.30'
-  implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.12.1'
+  implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.12.2'
 
   // by default, -android version gets dragged in and breaks JIB - I get java.lang.NoSuchMethodError
   //   com.google.common.collect.ImmutableList.toImmutableList()Ljava/util/stream/Collector;
   implementation 'com.google.guava:guava:30.1-jre'
 
-  compileOnly    'gradle.plugin.com.google.cloud.tools:jib-gradle-plugin:2.7.1'
+  compileOnly    'gradle.plugin.com.google.cloud.tools:jib-gradle-plugin:2.8.0'
 }
 
 tasks.withType(ScalaCompile) {
