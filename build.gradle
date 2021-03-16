@@ -1,3 +1,6 @@
+//scalaVersion       = 3.0.0-RC1
+//scalaVersionMajor  = 3.0.0-RC1
+//scalaLibrary       = org.scala-lang:scala3-library_3.0.0-RC1
 plugins {
   id 'com.github.ben-manes.versions' version '0.38.0'
   id 'scala'
@@ -20,9 +23,9 @@ final List<String> projectTags = ['Gradle', 'Google', 'CloudRun', 'JIB', 'Docker
 
 dependencies {
   implementation 'org.scala-lang:scala-library:2.13.5'
-  implementation 'com.google.auth:google-auth-library-oauth2-http:0.24.1'
+  implementation 'com.google.auth:google-auth-library-oauth2-http:0.25.0'
   implementation 'com.google.api-client:google-api-client:1.31.3'
-  implementation 'com.google.apis:google-api-services-run:v1-rev20210301-1.31.0'
+  implementation 'com.google.apis:google-api-services-run:v1-rev20210308-1.31.0'
   implementation 'org.slf4j:slf4j-api:1.7.30'
   implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.12.2'
 
