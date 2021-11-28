@@ -3,7 +3,7 @@ package org.podval.tools.cloudrun
 import scala.annotation.tailrec
 import scala.util.Random
 
-object ThreeLetterWord {
+object ThreeLetterWord:
   /**
    * Generate random 3-letter words.
    * Words are generated in a consonant-vowel-consonant order to be pronounceable.
@@ -21,13 +21,12 @@ object ThreeLetterWord {
    *
    * Inspired by https://github.com/twistedpair/google-cloud-sdk/blob/master/google-cloud-sdk/lib/googlecloudsdk/command_lib/run/name_generator.py
    */
-  def get(validate: Boolean): String = if (validate) getValid else get
+  def get(validate: Boolean): String = if validate then getValid else get
 
   @tailrec
-  private def getValid: String = {
+  private def getValid: String =
     val result: String = get
-    if (!invalid.contains(result)) result else getValid
-  }
+    if !invalid.contains(result) then result else getValid
 
   private def get: String = Seq(random(consonants), random(vowels), random(consonants)).mkString
 
@@ -55,4 +54,3 @@ object ThreeLetterWord {
   private val consonants: String = "bcdfghjklmnpqrstvwxyz"
 
   private def random(what: String): Char = what(Random.nextInt(what.length))
-}

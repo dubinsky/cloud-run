@@ -1,10 +1,10 @@
 package org.podval.tools.cloudrun
 
 import com.google.api.services.run.v1.model.{Configuration, Revision, Route, Service}
-import org.podval.tools.cloudrun.ServiceExtender.Operations
+import org.podval.tools.cloudrun.ServiceExtender.*
 import org.slf4j.Logger
 
-final class CloudRunService(run: CloudRun, service: Service) {
+final class CloudRunService(run: CloudRun, service: Service):
 
   private def log: Logger = run.log
 
@@ -18,9 +18,9 @@ final class CloudRunService(run: CloudRun, service: Service) {
 
   def getLatestRevision: Revision = getRevision(get.getStatus.getLatestCreatedRevisionName)
 
-  def deploy(): Service = {
+  def deploy(): Service =
     val current: Option[Service] = scala.util.Try(get).toOption
-    val nextGeneration: Integer = current.flatMap(_.generation).getOrElse(0) + 1
+    val nextGeneration: Int = current.flatMap(_.generation).getOrElse(0) + 1
     val revisionName: String = f"${service.name}-$nextGeneration%05d-${ThreeLetterWord.get(validate = true)}"
 
     val annotations: Map[String, String] = Map(
@@ -39,9 +39,9 @@ final class CloudRunService(run: CloudRun, service: Service) {
 
     log.warn(s"Deploying service [${service.name}] revision [$revisionName] in project [${run.projectId}] region [${run.region}].")
 
-    if (current.isEmpty) run.createService(next) else run.replaceService(next)
+    if current.isEmpty then run.createService(next) else run.replaceService(next)
 
-    new StatusTracker(log, stages = Seq(
+    StatusTracker(log, stages = Seq(
       StatusTracker.Stage("Service ", () => get                      .getStatus.getConditions),
       StatusTracker.Stage("Route   ", () => getConfiguration         .getStatus.getConditions),
       StatusTracker.Stage("Revision", () => getRevision(revisionName).getStatus.getConditions),
@@ -53,5 +53,3 @@ final class CloudRunService(run: CloudRun, service: Service) {
     val result: Service = get
     log.warn(s"Service URL: ${result.getStatus.getUrl}")
     result
-  }
-}

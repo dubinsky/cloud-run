@@ -1,6 +1,3 @@
-//scalaVersion       = 3.0.0-RC1
-//scalaVersionMajor  = 3.0.0-RC1
-//scalaLibrary       = org.scala-lang:scala3-library_3.0.0-RC1
 plugins {
   id 'com.github.ben-manes.versions' version '0.39.0'
   id 'scala'
@@ -13,16 +10,16 @@ plugins {
 
 description = 'Deploy Service to Google Cloud Run'
 group = 'org.podval.tools'
-version = '0.2.0'
+version = '0.3.0'
 
 final String gitHubRepository = "dubinsky/cloud-run"
 final String gitHubRepositoryUrl = "https://github.com/$gitHubRepository"
 final String orgName = 'Podval Group'
-final String orgUrl = 'http://www.podval.org'
-final List<String> projectTags = ['Gradle', 'Google', 'CloudRun', 'JIB', 'Docker']
+final String orgUrl = 'https://www.podval.org'
+final List<String> projectTags = ['Google', 'CloudRun', 'JIB', 'Docker']
 
 dependencies {
-  implementation 'org.scala-lang:scala-library:2.13.7'
+  implementation 'org.scala-lang:scala3-library_3:3.1.1-RC1'
   implementation 'com.google.auth:google-auth-library-oauth2-http:1.3.0'
   implementation 'com.google.api-client:google-api-client:1.32.2'
   implementation 'com.google.apis:google-api-services-run:v1-rev20211112-1.32.1'
@@ -38,7 +35,17 @@ dependencies {
 
 tasks.withType(ScalaCompile) {
   scalaCompileOptions.with {
-    targetCompatibility = '1.8'
+    additionalParameters = [
+      '-new-syntax',
+      '-feature',
+      '-language:strictEquality',
+      '-source:future',
+      //'-deprecation',
+      //'-unchecked',
+      //'-Xsemanticdb',
+      //'-Ysafe-init',
+      //'-explain',
+    ]
   }
 }
 
@@ -103,7 +110,7 @@ publishing {
         licenses {
           license {
             name = 'The Apache Software License, Version 2.0'
-            url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+            url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
             distribution = 'repo'
             comments = 'A business-friendly OSS license'
           }
@@ -117,7 +124,7 @@ publishing {
             id = 'dub'
             name = 'Leonid Dubinsky'
             email = 'dub@podval.org'
-            url = 'http://dub.podval.org'
+            url = 'https://dub.podval.org'
             organization = orgName
             organizationUrl = orgUrl
             timezone = '-5'

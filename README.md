@@ -21,8 +21,8 @@ Plugin is opinionated:
 
 ```groovy
 plugins {
-  id 'com.google.cloud.tools.jib' version '2.8.0' // optional; see `JIB Plugin` section below
-  id 'org.podval.tools.cloudrun' version '0.2.0'
+  id 'com.google.cloud.tools.jib' version '3.1.4' // optional; see `JIB Plugin` section below
+  id 'org.podval.tools.cloudrun' version '0.3.0'
 }
 ```
 
@@ -79,18 +79,18 @@ Additional Docker options can be configured using `additionalOptions` property o
 that task:
 ```groovy
 cloudRunLocal.additionalOptions = [
-  '--mount', 'type=bind,source=...,target=/mnt/store/'
+  '--volume', '...:/mnt/store/:Z'
 ]
 ```
 
 For multiple local configurations with different `additionalOptions`,
-additional tasks of type `org.podval.tools.cloudrun.CloudRunPlugin.RunLocalTask`
+additional tasks of type `org.podval.tools.cloudrun.RunLocalTask`
 can be added to the Gradle project.
 
 ### JIB plugin ###
 
 If your Gradle project uses JIB to build and push the image (and why wouldn't it?),
-CloudRun plugin configures some values on the`jib` extension (if you did not  configure them):
+CloudRun plugin configures some values on the`jib` extension (if you did not configure them):
 - `jib.to.image` is set to the image name from the service YAML file;
 - `jib.to.auth.password` is set to the service account key;
 - `jib.to.auth.username` is set to `_json_key`, telling JIB to use service account key.
@@ -99,7 +99,7 @@ In addition:
 - `cloudRunDeploy` task is configured to depend on the `jib` task;
 - `cloudRunLocal` task is configured to depend on the `jibDockerBuild` task.
 
-Note: any additional task of type `org.podval.tools.cloudrun.CloudRunPlugin.RunLocalTask`
+Note: any additional task of type `org.podval.tools.cloudrun.RunLocalTask`
 is configured with the parameters from the Service YAML file,
 and automatically depends on the`jibDockerBuild` task. 
 
@@ -114,10 +114,10 @@ before the `cloudRunDeploy` task runs;
 
 Plugin creates two help tasks that retrieve the YAML for the service and
 its latest revision respectively:
-- `cloudRunGetServiceYaml` is similar to
+- `cloudRunDescribe` is similar to
   `gcloud run services describe $serviceName --format export`
-- `cloudRunGetLatestRevisionYaml` is similar to
-  `gcloud run services describe $serviceName --format export` (if you know the name of the
+- `cloudRunDescribeRevision` is similar to
+  `gcloud run revisions describe $revisionName --format export` (if you know the name of the
   latest revision of your service :))
 
 ## Configuration ##
@@ -125,7 +125,7 @@ its latest revision respectively:
 Plugin creates `cloudRun` extension that can be used to configure it via `build.gradle` file:
 ```groovy
 cloudRun {
-  region = 'us-east4'                                     // required
+  region = 'us-east1'                                     // required
   serviceYamlFilePath = "$getProjectDir/service.yaml"     // optional
   serviceAccountKeyProperty = 'gcloudServiceAccountKey'   // optional
 }
@@ -170,7 +170,7 @@ with the same name. Since the key itself is retrieved only when needed,
 steps that do not have the key available will work - unless they involve
 tasks that require it.
 
-Itt is this *name* that this parameter configures.
+It is this *name* that this parameter configures.
 It defaults to `gcloudServiceAccountKey` and needs to be explicitly set
 only if a different name is desired.
 
@@ -280,7 +280,7 @@ This leads to something like this in the `.github/workflows/CI.yaml` file:
 
 And here is the *real* problem: service configuration is now duplicated;
 one copy - in the `build.gradle` file - is used for deployment from the
-local machine, while another is used from the CI.
+local machine, while another - in the workflow file - is used from the CI.
 
 Note: I didn't try to simplify the above to:
 ```yaml
@@ -410,7 +410,7 @@ would not have been written ;)
 This is where I decided to write a little something that uses the same API,
 reads parameters from a YAML file, and adds whatever needs to be added to force
 creation of a new revision. As a result, there is now a way to run the service
-locally without yet another configuration duplicaton:
+locally without yet another configuration duplication:
 
 ### Run locally ###
 
@@ -438,8 +438,8 @@ To allow for additional configuration of the local run (e.g., mounting local vol
 `cloudRunLocal` task exposes `additionalOptions` property, which can be used like this:
 ```groovy
 cloudRunLocal.additionalOptions = [
-  '--mount', 'type=bind,source=...,target=/mnt/store/',
-  '--env'  , 'STORE=file:///mnt/store/'
+  '--volume', '...:/mnt/store/:Z',
+  '--env'   , 'STORE=file:///mnt/store/'
 ]
 ```
 

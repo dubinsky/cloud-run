@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2021-11-27
+- Scala 3;
+- 
 ## [0.2.0] - 2021-02-08
 - documentation;
 - cleanup;
@@ -60,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in CI environment key property may not be defined during a non-deploy build;
   
 ## [0.0.6] - 2020-11-30
-- JIB auto-configuration (jib.to.image, jib.to.auth.username, jib.to.auth.password);
+- JIB autoconfiguration (jib.to.image, jib.to.auth.username, jib.to.auth.password);
 - cloudRunDeploy.dependsOn('jib');
 
 ## [0.0.5] - 2020-11-30

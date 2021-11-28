@@ -11,28 +11,27 @@ final class StatusTracker(
   preStartSleepMs: Int = 500,
   sleepMs: Int = 500,
   stages: Seq[StatusTracker.Stage]
-) {
-  def track(): Unit = {
-    if (preStartSleepMs > 0) Thread.sleep(preStartSleepMs)
+):
+  def track(): Unit =
+    if preStartSleepMs > 0 then Thread.sleep(preStartSleepMs)
 
     val threads: Seq[Thread] = for (stage <- stages)
-      yield new Thread(() => new StageTracker(stage).track())
+      yield Thread(() => StageTracker(stage).track())
 
     for (thread <- threads) thread.start()
     for (thread <- threads) thread.join()
-  }
 
-  private final class StageTracker(stage: StatusTracker.Stage) {
+  private final class StageTracker(stage: StatusTracker.Stage):
     private var done: Boolean = false
     private var previous: Map[String, GoogleCloudRunV1Condition] = Map.empty
 
-    def track(): Unit = while (!done) {
+    def track(): Unit = while !done do
       val current: Map[String, GoogleCloudRunV1Condition] = stage.poll()
 
       val newMessages: Set[String] = StatusTracker.getNewMessages(previous, current)
         .map(message => stage.name + ": " + message)
 
-      if (newMessages.nonEmpty) log.warn(newMessages.mkString("\n"))
+      if newMessages.nonEmpty then log.warn(newMessages.mkString("\n"))
 
       // TODO is it really done if Cloud Run is retrying *something* in 10 minutes?
       //val retry: Option[GoogleCloudRunV1Condition] = previous.get("Retry")
@@ -43,23 +42,19 @@ final class StatusTracker(
 
       previous = current
 
-      if (!done) Thread.sleep(sleepMs)
-    }
-  }
-}
+      if !done then Thread.sleep(sleepMs)
 
-object StatusTracker {
+object StatusTracker:
 
-  final case class Stage(
-    name: String,
+  final class Stage(
+    val name: String,
     getConditions: () => java.util.List[GoogleCloudRunV1Condition]
-  ) {
+  ):
     def poll(): Map[String, GoogleCloudRunV1Condition] = Option(getConditions())
       .getOrElse(java.util.Collections.emptyList())
       .asScala
       .map(condition => condition.getType -> condition)
       .toMap
-  }
 
   private def isRetry(condition: GoogleCloudRunV1Condition): Boolean = condition.getType   == "Retry"
 
@@ -83,4 +78,3 @@ object StatusTracker {
 //      reason.map(reason => s"($reason)").getOrElse("")
 //    s"${condition.getType}=${condition.getStatus} $string"
 //  }
-}
