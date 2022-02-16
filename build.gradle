@@ -23,8 +23,8 @@ dependencies {
   implementation 'com.google.auth:google-auth-library-oauth2-http:1.4.0'
   implementation 'com.google.api-client:google-api-client:1.33.2'
   implementation 'com.google.apis:google-api-services-run:v1-rev20211112-1.32.1'
-  // TODO switch to V2: implementation 'com.google.apis:google-api-services-run:v2-rev20220128-1.32.1'
-  implementation 'org.slf4j:slf4j-api:1.7.32'
+  // TODO switch to V2 when I figure out how the service.yaml changes: implementation 'com.google.apis:google-api-services-run:v2-rev20220128-1.32.1'
+  implementation 'org.slf4j:slf4j-api:1.7.36'
   implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.13.1'
 
   // by default, -android version gets dragged in and breaks JIB - I get java.lang.NoSuchMethodError
@@ -36,6 +36,7 @@ dependencies {
 
 tasks.withType(ScalaCompile) {
   scalaCompileOptions.with {
+    targetCompatibility = '' // TODO remove when https://youtrack.jetbrains.com/issue/SCL-18813 is fixed
     additionalParameters = [
       '-new-syntax',
       '-feature',

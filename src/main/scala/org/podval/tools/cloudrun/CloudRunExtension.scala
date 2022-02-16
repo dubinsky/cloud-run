@@ -5,20 +5,14 @@ import com.google.cloud.tools.jib.gradle.JibExtension
 import org.gradle.api.Project
 import org.gradle.api.provider.Property
 import ServiceExtender.*
+import javax.inject.Inject
 
 // Extension class is not final so that Gradle could create decorated instances.
 
-class CloudRunExtension(project: Project):
-  private val serviceYamlFilePath: Property[String] = project.getObjects.property(classOf[String])
-  def getServiceYamlFilePath: Property[String] = serviceYamlFilePath
-  serviceYamlFilePath.set(s"${project.getProjectDir}/service.yaml")
-
-  private val region: Property[String] = project.getObjects.property(classOf[String])
-  def getRegion: Property[String] = region
-
-  private val serviceAccountKeyProperty: Property[String] = project.getObjects.property(classOf[String])
-  def getServiceAccountKeyProperty: Property[String] = serviceAccountKeyProperty
-  serviceAccountKeyProperty.set(CloudRunExtension.serviceAccountKeyPropertyDefault)
+abstract class CloudRunExtension @Inject(project: Project):
+  def getServiceYamlFilePath: Property[String]
+  def getRegion: Property[String]
+  def getServiceAccountKeyProperty: Property[String]
 
   project.afterEvaluate { (project: Project) =>
     // verify that the extension is configured properly, initialize derived values and configure JIB
@@ -47,13 +41,20 @@ class CloudRunExtension(project: Project):
     }
   }
 
-  lazy val service: Service = Util.yamlFile2[Service](
-    clazz = classOf[Service],
-    yamlFilePath = Util.getValue(serviceYamlFilePath, "serviceYamlFilePath")
+  lazy val service: Service = Util.readServiceYaml(
+    CloudRunExtension.getValue(
+      property = getServiceYamlFilePath,
+      default = Some(s"${project.getProjectDir}/service.yaml"),
+      name = "serviceYamlFilePath"
+    )
   )
 
   lazy val serviceAccountKey: Option[String] =
-    val keyProperty: String = Util.getValue(serviceAccountKeyProperty, "serviceAccountKeyProperty")
+    val keyProperty: String = CloudRunExtension.getValue(
+      property = getServiceAccountKeyProperty,
+      default = Some(CloudRunExtension.serviceAccountKeyPropertyDefault),
+      name = "serviceAccountKeyProperty"
+    )
     if keyProperty.startsWith("/") then
       val key: String = Util.file2string(keyProperty)
       project.getLogger.lifecycle(
@@ -74,19 +75,17 @@ class CloudRunExtension(project: Project):
         None
       }
 
-  def getRegionValue: String = Util.getValue(region, "region")
+  def getRegionValue: String = CloudRunExtension.getValue(
+    property = getRegion,
+    default = None,
+    name = "region"
+  )
 
 object CloudRunExtension:
-  private val name: String = "cloudRun"
+  def getValue(property: Property[String], default: Option[String], name: String): String =
+    val fromProperty: Option[String] = if !property.isPresent then None else Some(property.get)
+    val result: Option[String] = fromProperty.orElse(default)
+    if result.isEmpty then throw IllegalArgumentException(s"$name is not set!")
+    result.get
 
-  private val serviceAccountKeyPropertyDefault: String = "gcloudServiceAccountKey"
-
-  def create(project: Project): Unit =
-    project.getExtensions.create(
-      name,
-      classOf[CloudRunExtension],
-      project
-    )
-  
-  def get(project: Project): CloudRunExtension =
-    project.getExtensions.getByName(name).asInstanceOf[CloudRunExtension]
+  val serviceAccountKeyPropertyDefault: String = "gcloudServiceAccountKey"

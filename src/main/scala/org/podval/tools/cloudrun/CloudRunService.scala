@@ -1,14 +1,23 @@
 package org.podval.tools.cloudrun
 
 import com.google.api.services.run.v1.model.{Configuration, Revision, Route, Service}
-import org.podval.tools.cloudrun.ServiceExtender.*
+import ServiceExtender.*
 import org.slf4j.Logger
 
-final class CloudRunService(run: CloudRun, service: Service):
-
-  private def log: Logger = run.log
+final class CloudRunService(
+  serviceAccountKey: Option[String],
+  region: String,
+  service: Service,
+  log: Logger
+):
+  private val run: CloudRun = CloudRun(
+    serviceAccountKey = serviceAccountKey.getOrElse(throw IllegalArgumentException("No service account key!")),
+    region = region
+  )
 
   def get: Service = run.getService(service.name)
+
+  def getYaml: String = "Latest Service YAML:\n" + Util.json2yaml(get)
 
   def getConfiguration: Configuration = run.getConfiguration(service.name)
 
@@ -17,6 +26,8 @@ final class CloudRunService(run: CloudRun, service: Service):
   def getRevision(revisionName: String): Revision = run.getRevision(revisionName)
 
   def getLatestRevision: Revision = getRevision(get.getStatus.getLatestCreatedRevisionName)
+
+  def getLatestRevisionYaml: String = "Latest Revision YAML:\n" + Util.json2yaml(getLatestRevision)
 
   def deploy(): Service =
     val current: Option[Service] = scala.util.Try(get).toOption
@@ -53,3 +64,18 @@ final class CloudRunService(run: CloudRun, service: Service):
     val result: Service = get
     log.warn(s"Service URL: ${result.getStatus.getUrl}")
     result
+
+object CloudRunService:
+
+  def main(args: Array[String]): Unit =
+    val cloudRunService = CloudRunService(
+      serviceAccountKey = Util.getServiceAccountKeyFromGradleProperties,
+      region = "us-east4",
+      service = Util.readServiceYaml("../../OpenTorah/opentorah.org/collector/service.yaml"),
+      log = org.slf4j.LoggerFactory.getLogger(classOf[CloudRun])
+    )
+    val service: Service = cloudRunService.get
+    val revision: Revision = cloudRunService.getLatestRevision
+
+    println(cloudRunService.getYaml)
+    println(s"${service.name}: ${revision.getMetadata.getName} at ${service.getStatus.getUrl}")

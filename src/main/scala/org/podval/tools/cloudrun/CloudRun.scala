@@ -6,16 +6,14 @@ import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.client.googleapis.services.AbstractGoogleClientRequest
 import com.google.api.services.run.v1.{CloudRunScopes, CloudRun as GoogleCloudRun}
 import com.google.api.services.run.v1.model.{Configuration, Revision, Route, Service, Status}
-import org.podval.tools.cloudrun.ServiceExtender.*
+import ServiceExtender.*
 import org.slf4j.Logger
-
 import scala.jdk.CollectionConverters.IterableHasAsScala
 
 // Note: see https://github.com/googleapis/google-cloud-java
 final class CloudRun(
   serviceAccountKey: String,
-  val region: String,
-  val log: Logger
+  val region: String
 ):
   // Note: see https://github.com/googleapis/google-auth-library-java#google-auth-library-oauth2-http
   // (what is ServiceAccountJwtAccessCredentials.fromStream(keyStream) for?)

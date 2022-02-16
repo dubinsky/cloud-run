@@ -9,7 +9,7 @@ import ServiceExtender.*
 
 import scala.jdk.CollectionConverters.{ListHasAsScala, SeqHasAsJava}
 
-class RunLocalTask extends DefaultTask:
+class RunLocalTask extends CloudRunTask:
   setDescription("Run Cloud Run service in the local Docker")
   setGroup("publishing")
 
@@ -17,10 +17,10 @@ class RunLocalTask extends DefaultTask:
   @Input def getAdditionalOptions: ListProperty[String] = additionalOptions
   additionalOptions.set(Seq.empty[String].asJava)
 
-  Util.dependsOnJib(this, "jibDockerBuild")
+  dependsOnJibTask("jibDockerBuild")
 
   @TaskAction final def execute(): Unit =
-    val service: Service = CloudRunExtension.get(getProject).service
+    val service: Service = extension.service
     val additionalOptions: Seq[String] = this.additionalOptions.get.asScala.toSeq
     val port: Int = service.containerPort.getOrElse(8080)
 
