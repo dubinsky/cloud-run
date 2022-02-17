@@ -6,9 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2022-02-16
+- dependencies updated;
+- code cleanup;
+
 ## [0.3.0] - 2021-11-27
 - Scala 3;
-- 
+
 ## [0.2.0] - 2021-02-08
 - documentation;
 - cleanup;
