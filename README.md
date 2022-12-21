@@ -21,7 +21,7 @@ Plugin is opinionated:
 
 ```groovy
 plugins {
-  id 'com.google.cloud.tools.jib' version '3.2.0' // optional; see `JIB Plugin` section below
+  id 'com.google.cloud.tools.jib' version '3.2.1' // optional; see `JIB Plugin` section below
   id 'org.podval.tools.cloudrun' version '0.3.1'
 }
 ```

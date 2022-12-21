@@ -43,6 +43,8 @@ object Util:
     yamlFactory.disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER) // suppress leading "---"
     ObjectMapper(yamlFactory)
 
+  // TODO use opentorah-util
+
   def file2string(path: String): String = source2string(Source.fromFile(path))
 
   // def stream2string(stream: InputStream): String = source2string(Source.fromInputStream(stream)(Codec(utf8)))
@@ -58,6 +60,7 @@ object Util:
 
   // Extension with the name 'jib' comes from the [JIB plugin](https://github.com/GoogleContainerTools/jib);
   // if it exists, tasks 'jib' and 'jibDockerBuild' exist too.
+  // TODO use opentorah-util
   def getJib(project: Project): Option[JibExtension] = Option(project.getExtensions.findByType(classOf[JibExtension]))
 
   def list(optionName: String, map: Map[String, String]): Seq[String] =

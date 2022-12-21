@@ -82,6 +82,7 @@ abstract class CloudRunExtension @Inject(project: Project):
   )
 
 object CloudRunExtension:
+  // TODO use opentorah-util
   def getValue(property: Property[String], default: Option[String], name: String): String =
     val fromProperty: Option[String] = if !property.isPresent then None else Some(property.get)
     val result: Option[String] = fromProperty.orElse(default)

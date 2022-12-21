@@ -1,11 +1,11 @@
 plugins {
-  id 'com.github.ben-manes.versions' version '0.42.0'
+  id 'com.github.ben-manes.versions' version '0.44.0'
   id 'scala'
   id 'java-library'
   id 'java-gradle-plugin'
   id 'maven-publish'
   id 'signing'
-  id 'com.gradle.plugin-publish' version '0.20.0'
+  id 'com.gradle.plugin-publish' version '1.1.0'
 }
 
 description = 'Deploy Service to Google Cloud Run'
@@ -16,22 +16,21 @@ final String gitHubRepository = "dubinsky/cloud-run"
 final String gitHubRepositoryUrl = "https://github.com/$gitHubRepository"
 final String orgName = 'Podval Group'
 final String orgUrl = 'https://www.podval.org'
-final List<String> projectTags = ['Google', 'CloudRun', 'JIB', 'Docker']
 
 dependencies {
-  implementation 'org.scala-lang:scala3-library_3:3.1.2-RC1'
-  implementation 'com.google.auth:google-auth-library-oauth2-http:1.4.0'
+  implementation 'org.scala-lang:scala3-library_3:3.2.1'
+  implementation 'com.google.auth:google-auth-library-oauth2-http:1.14.0'
   implementation 'com.google.api-client:google-api-client:1.33.2'
-  implementation 'com.google.apis:google-api-services-run:v1-rev20211112-1.32.1'
+  implementation 'com.google.apis:google-api-services-run:v1-rev20211112-1.32.1' // TODO v2-rev20221211-2.0.0
   // TODO switch to V2 when I figure out how the service.yaml changes: implementation 'com.google.apis:google-api-services-run:v2-rev20220128-1.32.1'
   implementation 'org.slf4j:slf4j-api:1.7.36'
-  implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.13.1'
+  implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.14.1'
 
   // by default, -android version gets dragged in and breaks JIB - I get java.lang.NoSuchMethodError
   //   com.google.common.collect.ImmutableList.toImmutableList()Ljava/util/stream/Collector;
-  implementation 'com.google.guava:guava:31.0.1-jre'
+  implementation 'com.google.guava:guava:31.1-jre'
 
-  compileOnly    'gradle.plugin.com.google.cloud.tools:jib-gradle-plugin:3.2.0'
+  compileOnly    'gradle.plugin.com.google.cloud.tools:jib-gradle-plugin:3.2.1'
 }
 
 tasks.withType(ScalaCompile) {
@@ -143,32 +142,16 @@ signing {
 }
 
 gradlePlugin {
+  website = gitHubRepositoryUrl
+  vcsUrl  = gitHubRepositoryUrl //.git' ?
   plugins {
     cloudRun {
       id = project.name
       implementationClass = 'org.podval.tools.cloudrun.CloudRunPlugin'
-    }
-  }
-}
-
-pluginBundle {
-  website = gitHubRepositoryUrl
-  vcsUrl  = gitHubRepositoryUrl //.git' ?
-
-  plugins {
-    cloudRun {
       displayName = project.description
       description = project.description
-      tags        = projectTags
+      tags.set(['Google', 'CloudRun', 'JIB', 'Docker'])
     }
-  }
-
-  // If you have an existing plugin deployed to Bintray and would like to keep
-  // your existing group ID and artifact ID for continuity, you can specify
-  // them here (needs manual approval on first publication).
-  mavenCoordinates {
-    groupId    = project.group
-    artifactId = project.name
   }
 }
 
