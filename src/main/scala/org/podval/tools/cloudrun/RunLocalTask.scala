@@ -48,5 +48,4 @@ class RunLocalTask extends CloudRunTask:
       service.args.toSeq.flatten
 
     getLogger.lifecycle(s"Running: ${commandLine.mkString(" ")}")
-    // TODO use opentorah-util?
     getProject.exec((execSpec: ExecSpec) => execSpec.setCommandLine(commandLine.asJava))

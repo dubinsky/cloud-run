@@ -2,15 +2,13 @@ plugins {
   id 'com.github.ben-manes.versions' version '0.44.0'
   id 'scala'
   id 'java-library'
-  id 'java-gradle-plugin'
-  id 'maven-publish'
   id 'signing'
   id 'com.gradle.plugin-publish' version '1.1.0'
 }
 
 description = 'Deploy Service to Google Cloud Run'
 group = 'org.podval.tools'
-version = '0.3.1'
+version = '0.3.2'
 
 final String gitHubRepository = "dubinsky/cloud-run"
 final String gitHubRepositoryUrl = "https://github.com/$gitHubRepository"
@@ -20,10 +18,10 @@ final String orgUrl = 'https://www.podval.org'
 dependencies {
   implementation 'org.scala-lang:scala3-library_3:3.2.1'
   implementation 'com.google.auth:google-auth-library-oauth2-http:1.14.0'
-  implementation 'com.google.api-client:google-api-client:1.33.2'
+  implementation 'com.google.api-client:google-api-client:2.1.1'
   implementation 'com.google.apis:google-api-services-run:v1-rev20211112-1.32.1' // TODO v2-rev20221211-2.0.0
   // TODO switch to V2 when I figure out how the service.yaml changes: implementation 'com.google.apis:google-api-services-run:v2-rev20220128-1.32.1'
-  implementation 'org.slf4j:slf4j-api:1.7.36'
+  implementation 'org.slf4j:slf4j-api:2.0.6'
   implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.14.1'
 
   // by default, -android version gets dragged in and breaks JIB - I get java.lang.NoSuchMethodError
