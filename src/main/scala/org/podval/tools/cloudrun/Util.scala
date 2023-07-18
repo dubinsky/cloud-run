@@ -15,27 +15,25 @@ import scala.io.Source
 object Util:
   def jsonFactory: JsonFactory = GsonFactory.getDefaultInstance
 
-  def readServiceYaml(serviceYamlFilePath: String): Service = Util.yamlFile2[Service](
-    clazz = classOf[Service],
-    yamlFilePath = serviceYamlFilePath
-  )
-
   // Note: when parsing Service YAML, objectMapper.readValue(inputStream, classOf[Service]) throws
   //   java.lang.IllegalArgumentException:
   //   Can not set com.google.api.services.run.v1.model.ObjectMeta field
   //   com.google.api.services.run.v1.model.Service.metadata to java.util.LinkedHashMap
   // so I convert YAML into a JSON string and then parse it using Google's parser:
-  private def yamlFile2[T](clazz: Class[T], yamlFilePath: String): T =
+  def readServiceYaml(serviceYamlFilePath: String): Service =
+    val yaml: String = file2string(serviceYamlFilePath)
     val json: String = yamlObjectMapper
-      .readTree(file2string(yamlFilePath))
+      .readTree(yaml)
       .toString
+
+//    println(s"YAML file: $serviceYamlFilePath\nyaml: $yaml\njson: $json\n")
 
     JsonObjectParser(jsonFactory).parseAndClose(
       string2stream(json),
       utf8,
-      clazz
+      classOf[Service]
     )
-
+  
   def json2yaml(value: AnyRef): String = yamlObjectMapper.writeValueAsString(value)
 
   private def yamlObjectMapper: ObjectMapper =

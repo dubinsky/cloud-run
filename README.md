@@ -39,10 +39,6 @@ spec:
     spec:
       containers:
       - image: "gcr.io/<project-id>/<service-name>"
-        resources:
-          limits:
-            cpu: "1000m"
-            memory: "512Mi"
 ```
 
 Configurable parameters are listed in the `service.yaml` section below.

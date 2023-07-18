@@ -41,13 +41,29 @@ abstract class CloudRunExtension @Inject(project: Project):
     }
   }
 
-  lazy val service: Service = Util.readServiceYaml(
-    CloudRunExtension.getValue(
-      property = getServiceYamlFilePath,
-      default = Some(s"${project.getProjectDir}/service.yaml"),
-      name = "serviceYamlFilePath"
+  lazy val service: Service =
+    val service: Service = Util.readServiceYaml(
+      CloudRunExtension.getValue(
+        property = getServiceYamlFilePath,
+        default = Some(s"${project.getProjectDir}/service.yaml"),
+        name = "serviceYamlFilePath"
+      )
     )
-  )
+    
+    // verify that minimal configuration is present
+    def verifyNotNull(getter: Service => AnyRef, what: String): Unit =
+      require(getter(service) != null, s"$what is missing!")
+      
+    verifyNotNull(_.getMetadata, "metadata")
+    verifyNotNull(_.getMetadata.getName, "metadata.name")
+    verifyNotNull(_.getSpec, "spec")
+    verifyNotNull(_.getSpec.getTemplate, "spec.template")
+    verifyNotNull(_.getSpec.getTemplate.getSpec, "spec.template.spec")
+    verifyNotNull(_.getSpec.getTemplate.getSpec.getContainers, "spec.template.spec.containers")
+    verifyNotNull(_.getSpec.getTemplate.getSpec.getContainers.get(0), "spec.template.spec.containers(0)")
+    verifyNotNull(_.getSpec.getTemplate.getSpec.getContainers.get(0).getImage, "spec.template.spec.containers(0).image")
+    
+    service
 
   lazy val serviceAccountKey: Option[String] =
     val keyProperty: String = CloudRunExtension.getValue(

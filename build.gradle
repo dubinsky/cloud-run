@@ -3,12 +3,12 @@ plugins {
   id 'scala'
   id 'java-library'
   id 'signing'
-  id 'com.gradle.plugin-publish' version '1.1.0'
+  id 'com.gradle.plugin-publish' version '1.2.0'
 }
 
 description = 'Deploy Service to Google Cloud Run'
 group = 'org.podval.tools'
-version = '0.3.2'
+version = '0.3.8'
 
 final String gitHubRepository = "dubinsky/cloud-run"
 final String gitHubRepositoryUrl = "https://github.com/$gitHubRepository"
@@ -16,34 +16,39 @@ final String orgName = 'Podval Group'
 final String orgUrl = 'https://www.podval.org'
 
 dependencies {
-  implementation 'org.scala-lang:scala3-library_3:3.2.1'
-  implementation 'com.google.auth:google-auth-library-oauth2-http:1.14.0'
-  implementation 'com.google.api-client:google-api-client:2.1.1'
-  implementation 'com.google.apis:google-api-services-run:v1-rev20211112-1.32.1' // TODO v2-rev20221211-2.0.0
-  // TODO switch to V2 when I figure out how the service.yaml changes: implementation 'com.google.apis:google-api-services-run:v2-rev20220128-1.32.1'
-  implementation 'org.slf4j:slf4j-api:2.0.6'
-  implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.14.1'
+  implementation 'org.scala-lang:scala3-library_3:3.3.0'
 
+  // Note: 1.19.0 brings in guava 32, for which JIB plugin 3.3.2 is not ready - but 3.3.3 will be
+  implementation 'com.google.auth:google-auth-library-oauth2-http:1.18.0'
   // by default, -android version gets dragged in and breaks JIB - I get java.lang.NoSuchMethodError
   //   com.google.common.collect.ImmutableList.toImmutableList()Ljava/util/stream/Collector;
-  implementation 'com.google.guava:guava:31.1-jre'
+  //  implementation 'com.google.guava:guava:31.1-jre'
+
+  implementation 'com.google.api-client:google-api-client:2.2.0'
+
+  // see https://cloud.google.com/run/docs/reference/about-apis -
+  // I am making API calls, but I rely on Kubernetes compatibility, so I am staying with v1.
+  implementation 'com.google.apis:google-api-services-run:v1-rev20230611-2.0.0'
+
+  implementation 'org.slf4j:slf4j-api:2.0.7'
+  implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.15.2'
 
   compileOnly    'gradle.plugin.com.google.cloud.tools:jib-gradle-plugin:3.2.1'
 }
 
-tasks.withType(ScalaCompile) {
+tasks.withType(ScalaCompile).configureEach {
   scalaCompileOptions.with {
     targetCompatibility = '' // TODO remove when https://youtrack.jetbrains.com/issue/SCL-18813 is fixed
     additionalParameters = [
-      '-new-syntax',
-      '-feature',
-      '-language:strictEquality',
-      '-source:future',
-      //'-deprecation',
-      //'-unchecked',
-      //'-Xsemanticdb',
-      //'-Ysafe-init',
-      //'-explain',
+            '-new-syntax',
+            '-feature',
+            '-language:strictEquality',
+            '-source:future',
+            //'-deprecation',
+            //'-unchecked',
+            //'-Xsemanticdb',
+            //'-Ysafe-init',
+            //'-explain',
     ]
   }
 }
@@ -57,12 +62,12 @@ jar {
   }
 }
 
-task sourcesJar(type: Jar) {
+tasks.register('sourcesJar', Jar) {
   from sourceSets.main.allSource
   archiveClassifier.set('sources')
 }
 
-task scaladocJar(type: Jar) {
+tasks.register('scaladocJar', Jar) {
   from scaladoc.destinationDir
   archiveClassifier.set('scaladoc')
 }
@@ -71,7 +76,7 @@ scaladocJar.dependsOn scaladoc
 // There is no Java in the project :)
 project.gradle.startParameter.excludedTaskNames.add('compileJava')
 // but Maven Central requires javadoc JAR...
-task javadocJar(type: Jar) {
+tasks.register('javadocJar', Jar) {
   from javadoc.destinationDir
   archiveClassifier.set('javadoc')
 }
@@ -135,7 +140,10 @@ publishing {
 }
 
 signing {
-  useInMemoryPgpKeys(findProperty('gnupg.dub-podval-org.key'), findProperty('gnupg.dub-podval-org.password'))
+  useInMemoryPgpKeys(
+    findProperty('gnupg.dub-podval-org.key'),
+    findProperty('gnupg.dub-podval-org.password')
+  )
   sign publishing.publications.library
 }
 
@@ -153,12 +161,12 @@ gradlePlugin {
   }
 }
 
-task uploadLibrary
+tasks.register('uploadLibrary')
 uploadLibrary.description('Upload artifacts')
 uploadLibrary.group('publishing')
 uploadLibrary.dependsOn(publishLibraryPublicationToMavenCentralRepository)
 
-task upload
+tasks.register('upload')
 upload.description('Upload artifacts and plugins')
 upload.group('publishing')
 upload.dependsOn(uploadLibrary)

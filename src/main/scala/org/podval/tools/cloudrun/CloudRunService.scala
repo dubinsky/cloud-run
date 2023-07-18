@@ -1,6 +1,6 @@
 package org.podval.tools.cloudrun
 
-import com.google.api.services.run.v1.model.{Configuration, Revision, Route, Service}
+import com.google.api.services.run.v1.model.{Configuration, ObjectMeta, Revision, Route, Service}
 import ServiceExtender.*
 import org.slf4j.Logger
 
@@ -16,9 +16,7 @@ final class CloudRunService(
   )
 
   def get: Service = run.getService(service.name)
-
-  def getYaml: String = "Latest Service YAML:\n" + Util.json2yaml(get)
-
+  
   def getConfiguration: Configuration = run.getConfiguration(service.name)
 
   def getRoute: Route = run.getRoute(service.name)
@@ -26,8 +24,6 @@ final class CloudRunService(
   def getRevision(revisionName: String): Revision = run.getRevision(revisionName)
 
   def getLatestRevision: Revision = getRevision(get.getStatus.getLatestCreatedRevisionName)
-
-  def getLatestRevisionYaml: String = "Latest Revision YAML:\n" + Util.json2yaml(getLatestRevision)
 
   def deploy(): Service =
     val current: Option[Service] = scala.util.Try(get).toOption
@@ -40,13 +36,17 @@ final class CloudRunService(
       "client.knative.dev/user-image"     -> service.containerImage // TODO why?
     )
 
-    val next: Service = service
-      // add some annotations, just as `gcloud deploy` does
-      // see https://github.com/twistedpair/google-cloud-sdk/blob/master/google-cloud-sdk/lib/googlecloudsdk/command_lib/run/serverless_operations.py
-      .addAnnotations(annotations)
-      .addSpecAnnotations(annotations) // TODO why?
-      // set revision name to force new revision even if nothing changed in the configuration
-      .setRevisionName(revisionName)
+    val next: Service = service.clone
+
+    if next.getSpec.getTemplate.getMetadata == null then
+      next.getSpec.getTemplate.setMetadata(new ObjectMeta)
+      
+    // add some annotations, just as `gcloud deploy` does
+    // see https://github.com/twistedpair/google-cloud-sdk/blob/master/google-cloud-sdk/lib/googlecloudsdk/command_lib/run/serverless_operations.py
+    CloudRunService.addAnnotationsTo(annotations, next.getMetadata)
+    CloudRunService.addAnnotationsTo(annotations, next.getSpec.getTemplate.getMetadata) // TODO why?
+    // set revision name to force new revision even if nothing changed in the configuration
+    next.getSpec.getTemplate.getMetadata.setName(revisionName)
 
     log.warn(s"Deploying service [${service.name}] revision [$revisionName] in project [${run.projectId}] region [${run.region}].")
 
@@ -66,16 +66,9 @@ final class CloudRunService(
     result
 
 object CloudRunService:
+  private def addAnnotationsTo(map: Map[String, String], result: ObjectMeta): Unit =
+    if result.getAnnotations == null then
+      result.setAnnotations(new java.util.HashMap[String, String]())
 
-  def main(args: Array[String]): Unit =
-    val cloudRunService = CloudRunService(
-      serviceAccountKey = Util.getServiceAccountKeyFromGradleProperties,
-      region = "us-east4",
-      service = Util.readServiceYaml("../../OpenTorah/opentorah.org/collector/service.yaml"),
-      log = org.slf4j.LoggerFactory.getLogger(classOf[CloudRun])
-    )
-    val service: Service = cloudRunService.get
-    val revision: Revision = cloudRunService.getLatestRevision
-
-    println(cloudRunService.getYaml)
-    println(s"${service.name}: ${revision.getMetadata.getName} at ${service.getStatus.getUrl}")
+    val annotations: java.util.Map[String, String] = result.getAnnotations
+    for ((key, value) <- map) annotations.put(key, value)

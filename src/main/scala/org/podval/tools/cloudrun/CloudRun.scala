@@ -7,7 +7,6 @@ import com.google.api.client.googleapis.services.AbstractGoogleClientRequest
 import com.google.api.services.run.v1.{CloudRunScopes, CloudRun as GoogleCloudRun}
 import com.google.api.services.run.v1.model.{Configuration, Revision, Route, Service, Status}
 import ServiceExtender.*
-import org.slf4j.Logger
 import scala.jdk.CollectionConverters.IterableHasAsScala
 
 // Note: see https://github.com/googleapis/google-cloud-java

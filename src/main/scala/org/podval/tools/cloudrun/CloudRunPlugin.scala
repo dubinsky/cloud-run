@@ -25,9 +25,11 @@ object CloudRunPlugin:
   class DescribeTask extends CloudRunTask:
     setDescription("Get the Service YAML from Google Cloud Run")
     setGroup("help")
-    @TaskAction final def execute(): Unit = getProject.getLogger.lifecycle(cloudRunService.getYaml)
+    @TaskAction final def execute(): Unit =
+      getProject.getLogger.lifecycle("Latest Service YAML:\n" + Util.json2yaml(cloudRunService.get))
 
   class DescribeRevisionTask extends CloudRunTask:
     setDescription("Get the latest Revision YAML from Google Cloud Run")
     setGroup("help")
-    @TaskAction final def execute(): Unit = getProject.getLogger.lifecycle(cloudRunService.getLatestRevisionYaml)
+    @TaskAction final def execute(): Unit =
+      getProject.getLogger.lifecycle("Latest Revision YAML:\n" + Util.json2yaml(cloudRunService.getLatestRevision))
