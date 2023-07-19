@@ -8,7 +8,7 @@ plugins {
 
 description = 'Deploy Service to Google Cloud Run'
 group = 'org.podval.tools'
-version = '0.3.8'
+version = '0.3.9'
 
 final String gitHubRepository = "dubinsky/cloud-run"
 final String gitHubRepositoryUrl = "https://github.com/$gitHubRepository"

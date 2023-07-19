@@ -1,5 +1,3 @@
-[![Maven Central](https://img.shields.io/maven-central/v/org.podval.tools/org.podval.tools.cloudrun.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:%22org.podval.tools%22%20AND%20a:%22org.podval.tools.cloudrun%22)
-
 ## Introduction ##
 
 Gradle plugin to deploy a service described in a [knative](https://knative.dev/)
@@ -22,7 +20,7 @@ Plugin is opinionated:
 ```groovy
 plugins {
   id 'com.google.cloud.tools.jib' version '3.2.1' // optional; see `JIB Plugin` section below
-  id 'org.podval.tools.cloudrun' version '0.3.1'
+  id 'org.podval.tools.cloudrun' version '0.3.9'
 }
 ```
 
@@ -80,7 +78,7 @@ cloudRunLocal.additionalOptions = [
 ```
 
 For multiple local configurations with different `additionalOptions`,
-additional tasks of type `org.podval.tools.cloudrun.RunLocalTask`
+additional tasks of type `org.podval.tools.cloudrun.CloudRunPlugin.RunLocalTask`
 can be added to the Gradle project.
 
 ### JIB plugin ###
@@ -95,7 +93,7 @@ In addition:
 - `cloudRunDeploy` task is configured to depend on the `jib` task;
 - `cloudRunLocal` task is configured to depend on the `jibDockerBuild` task.
 
-Note: any additional task of type `org.podval.tools.cloudrun.RunLocalTask`
+Note: any additional task of type `org.podval.tools.cloudrun.CloudRunPlugin.RunLocalTask`
 is configured with the parameters from the Service YAML file,
 and automatically depends on the`jibDockerBuild` task. 
 

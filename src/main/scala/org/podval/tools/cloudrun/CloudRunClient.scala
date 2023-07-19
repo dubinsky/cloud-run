@@ -6,21 +6,13 @@ import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.client.googleapis.services.AbstractGoogleClientRequest
 import com.google.api.services.run.v1.{CloudRunScopes, CloudRun as GoogleCloudRun}
 import com.google.api.services.run.v1.model.{Configuration, Revision, Route, Service, Status}
-import ServiceExtender.*
 import scala.jdk.CollectionConverters.IterableHasAsScala
 
 // Note: see https://github.com/googleapis/google-cloud-java
-final class CloudRun(
-  serviceAccountKey: String,
+final class CloudRunClient(
+  credentials: ServiceAccountCredentials,
   val region: String
 ):
-  // Note: see https://github.com/googleapis/google-auth-library-java#google-auth-library-oauth2-http
-  // (what is ServiceAccountJwtAccessCredentials.fromStream(keyStream) for?)
-  private val credentials: ServiceAccountCredentials = ServiceAccountCredentials
-    .fromStream(Util.string2stream(serviceAccountKey))
-    .createScoped(CloudRunScopes.all)
-    .asInstanceOf[ServiceAccountCredentials]
-
   private val client: GoogleCloudRun = GoogleCloudRun.Builder(
     GoogleNetHttpTransport.newTrustedTransport,
     Util.jsonFactory,
@@ -28,12 +20,12 @@ final class CloudRun(
     HttpCredentialsAdapter(credentials)
   )
     .setRootUrl(s"https://$region-run.googleapis.com")
-    .setApplicationName(CloudRun.applicationName)
+    .setApplicationName(CloudRunClient.applicationName)
     .build()
 
   def projectId: String = credentials.getProjectId
 
-  private def namespace: String = "namespaces/" + projectId
+  private def namespace: String = s"namespaces/$projectId"
 
   def listServices: List[Service] =
     getList(_.services().list(namespace))(_.getItems)
@@ -45,7 +37,7 @@ final class CloudRun(
     get(_.services().get(s"$namespace/services/$serviceName"))
 
   def replaceService(service: Service): Service =
-    get(_.services().replaceService(s"$namespace/services/${service.name}", service))
+    get(_.services().replaceService(s"$namespace/services/${CloudRunService.name(service)}", service))
 
   def deleteService(serviceName: String): Status =
     get(_.services().delete(s"$namespace/services/$serviceName"))
@@ -80,8 +72,15 @@ final class CloudRun(
   private def get[T](request: GoogleCloudRun#Namespaces => AbstractGoogleClientRequest[T]): T =
     request(client.namespaces()).execute()
 
-object CloudRun:
+object CloudRunClient:
 
   val applicationName: String = getClass.getPackage.getName
 
   val applicationVersion: String = Option(getClass.getPackage.getImplementationVersion).getOrElse("unknown version")
+
+  // Note: see https://github.com/googleapis/google-auth-library-java#google-auth-library-oauth2-http
+  // (what is ServiceAccountJwtAccessCredentials.fromStream(keyStream) for?)
+  def credentials(serviceAccountKey: String): ServiceAccountCredentials = ServiceAccountCredentials
+    .fromStream(Util.string2stream(serviceAccountKey))
+    .createScoped(CloudRunScopes.all)
+    .asInstanceOf[ServiceAccountCredentials]
