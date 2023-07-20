@@ -4,7 +4,7 @@ import com.google.auth.oauth2.ServiceAccountCredentials
 import com.google.auth.http.HttpCredentialsAdapter
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.client.googleapis.services.AbstractGoogleClientRequest
-import com.google.api.services.run.v1.{CloudRunScopes, CloudRun as GoogleCloudRun}
+import com.google.api.services.run.v1.CloudRun as GoogleCloudRun
 import com.google.api.services.run.v1.model.{Configuration, Revision, Route, Service, Status}
 import scala.jdk.CollectionConverters.IterableHasAsScala
 
@@ -73,14 +73,9 @@ final class CloudRunClient(
     request(client.namespaces()).execute()
 
 object CloudRunClient:
+  private def getPackage: Package = getClass.getPackage
+  
+  val applicationName: String = getPackage.getName
 
-  val applicationName: String = getClass.getPackage.getName
+  val applicationVersion: String = Option(getPackage.getImplementationVersion).getOrElse("unknown version")
 
-  val applicationVersion: String = Option(getClass.getPackage.getImplementationVersion).getOrElse("unknown version")
-
-  // Note: see https://github.com/googleapis/google-auth-library-java#google-auth-library-oauth2-http
-  // (what is ServiceAccountJwtAccessCredentials.fromStream(keyStream) for?)
-  def credentials(serviceAccountKey: String): ServiceAccountCredentials = ServiceAccountCredentials
-    .fromStream(Util.string2stream(serviceAccountKey))
-    .createScoped(CloudRunScopes.all)
-    .asInstanceOf[ServiceAccountCredentials]

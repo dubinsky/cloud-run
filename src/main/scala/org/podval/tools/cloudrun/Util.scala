@@ -38,17 +38,11 @@ object Util:
 
   // def stream2string(stream: InputStream): String = source2string(Source.fromInputStream(stream)(Codec(utf8)))
 
-  private def source2string(source: Source): String =
+  def source2string(source: Source): String =
     val result: String = source.getLines().mkString("\n")
     source.close()
     result
 
   def string2stream(string: String): InputStream = ByteArrayInputStream(string.getBytes(utf8))
   
-  //  def getServiceAccountKeyFromGradleProperties: Option[String] =
-//    val properties: java.util.Properties = java.util.Properties()
-//    val home: String = System.getenv("HOME")
-//    properties.load(java.io.FileInputStream(java.io.File(s"$home/.gradle/gradle.properties")))
-//    Option(properties.getProperty(CloudRunExtension.serviceAccountKeyPropertyDefault))
-
   private def utf8: Charset = Charset.forName("UTF-8")

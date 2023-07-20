@@ -7,7 +7,7 @@ import scala.jdk.CollectionConverters.IterableHasAsScala
 // inspired by
 // https://github.com/twistedpair/google-cloud-sdk/blob/9d6a1cf6238702560b22944089355eff06b5c216/google-cloud-sdk/lib/googlecloudsdk/api_lib/util/waiter.py
 final class StatusTracker(
-  log: Logger,
+  logger: Logger,
   preStartSleepMs: Int = 500,
   sleepMs: Int = 500,
   stages: Seq[StatusTracker.Stage]
@@ -31,7 +31,7 @@ final class StatusTracker(
       val newMessages: Set[String] = StatusTracker.getNewMessages(previous, current)
         .map(message => stage.name + ": " + message)
 
-      if newMessages.nonEmpty then log.warn(newMessages.mkString("\n"))
+      if newMessages.nonEmpty then logger.warn(newMessages.mkString("\n"))
 
       // TODO is it really done if Cloud Run is retrying *something* in 10 minutes?
       //val retry: Option[GoogleCloudRunV1Condition] = previous.get("Retry")
