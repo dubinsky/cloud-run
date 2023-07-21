@@ -9,6 +9,7 @@ object Jib:
   // if it exists, tasks 'jib' and 'jibDockerBuild' exist too.
 
   val remote: String = "jib"
+  
   val localDocker: String = "jibDockerBuild"
 
   private def get(project: Project): Option[JibExtension] = Option(project.getExtensions.findByType(classOf[JibExtension]))

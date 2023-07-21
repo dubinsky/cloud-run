@@ -6,15 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.3.11] - 2023-07-20
+## [0.4.0] - 2023-07-21
 - decided not to use OpenTorah here;
 - chore: Gradle update
 - chore: dependency updates
 - chore: latest Gradle plugin publishing plugin
-- chore: cleanup
+- chore: major code cleanup
 - fix: do not assume that `spec.template.metadata` block is present
 - fix: do not assume that `annotations` blocks are present
-- fix: verify the `service.yaml` file contains required settings
+- fix: verify that `service.yaml` file contains required settings
 
 ## [0.3.1] - 2022-02-16
 - dependencies updated;

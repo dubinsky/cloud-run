@@ -4,6 +4,9 @@ import com.google.api.services.run.v1.model.{Container, Service}
 import java.math.{MathContext, RoundingMode}
 import scala.jdk.CollectionConverters.{ListHasAsScala, MapHasAsScala}
 
+object CloudRunService:
+  def name(service: Service): String = service.getMetadata.getName
+
 final class CloudRunService(val service: Service):
   // verify that minimal configuration is present
   private def verifyNotNull(getter: Service => AnyRef, what: String): Unit =
@@ -78,6 +81,3 @@ final class CloudRunService(val service: Service):
       // https://docs.docker.com/engine/reference/run/#entrypoint-default-command-to-execute-at-runtime)?
       getList(container.getCommand) ++
       getList(container.getArgs)
-
-object CloudRunService:
-  def name(service: Service): String = service.getMetadata.getName

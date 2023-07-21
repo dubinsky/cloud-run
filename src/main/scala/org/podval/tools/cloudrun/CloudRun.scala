@@ -22,12 +22,22 @@ final class CloudRun(
   def deploy(): Service =
     val current: Option[Service] = scala.util.Try(get).toOption
 
-    val nextGeneration: Int = 1 + current
+    val next: Service = service.service.clone
+
+    // make sure spec.template.metadata is there - we are going to modify it
+    if next.getSpec.getTemplate.getMetadata == null then
+      next.getSpec.getTemplate.setMetadata(new ObjectMeta)
+
+    // set revision name to force new revision even if nothing changed in the configuration
+    val currentGeneration: Int = current
       .flatMap(current => Option(current.getMetadata.getGeneration))
       .map(_.toInt)
       .getOrElse(0)
 
-    val revisionName: String = f"${service.name}-$nextGeneration%05d-${ThreeLetterWord.get(validate = true)}"
+    val nextGeneration: Int = currentGeneration + 1
+    val suffix: String = ThreeLetterWord.get(validate = true)
+    val revisionName: String = f"${service.name}-$nextGeneration%05d-$suffix"
+    next.getSpec.getTemplate.getMetadata.setName(revisionName)
 
     // add some annotations, just as `gcloud deploy` does
     // (although I do not understand why they are added in both places and why is user-image one needed)
@@ -37,15 +47,6 @@ final class CloudRun(
       "run.googleapis.com/client-version" -> CloudRunClient.applicationVersion,
       "client.knative.dev/user-image"     -> service.containerImage
     )
-
-    val next: Service = service.service.clone
-
-    // make sure spec.template.metadata is there - we are going to modify it
-    if next.getSpec.getTemplate.getMetadata == null then
-      next.getSpec.getTemplate.setMetadata(new ObjectMeta)
-
-    // set revision name to force new revision even if nothing changed in the configuration
-    next.getSpec.getTemplate.getMetadata.setName(revisionName)
 
     CloudRun.addAnnotationsTo(annotations, next.getMetadata)
     CloudRun.addAnnotationsTo(annotations, next.getSpec.getTemplate.getMetadata)

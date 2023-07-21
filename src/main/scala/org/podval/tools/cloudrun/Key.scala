@@ -14,11 +14,11 @@ object Key:
     if keyProperty.startsWith("/") then
       val key: String = Util.file2string(keyProperty)
       project.getLogger.lifecycle(
-        "CloudRun: Add the following property to your ~/.gradle/gradle.properties file:\n" +
-          serviceAccountKeyPropertyDefault + "= \\\n" + // TODO what if the name is not default?
-          key
-            .replace("\n", " \\\n") // TODO order?
-            .replace("\\n", "\\\\n")
+        "CloudRun: add the following property to your ~/.gradle/gradle.properties file or set an environment variable:\n" +
+        keyProperty + "= \\\n" +
+        key
+          .replace("\n", " \\\n") // TODO order?
+          .replace("\\n", "\\\\n")
       )
       Some(key)
     else Option(System.getenv(keyProperty))
@@ -29,12 +29,6 @@ object Key:
         )
         None
       }
-
-//  def getServiceAccountKeyFromGradleProperties: Option[String] =
-//    val properties: java.util.Properties = java.util.Properties()
-//    val home: String = System.getenv("HOME")
-//    properties.load(java.io.FileInputStream(java.io.File(s"$home/.gradle/gradle.properties")))
-//    Option(properties.getProperty(CloudRunExtension.serviceAccountKeyPropertyDefault))
 
   // Note: see https://github.com/googleapis/google-auth-library-java#google-auth-library-oauth2-http
   // (what is ServiceAccountJwtAccessCredentials.fromStream(keyStream) for?)
