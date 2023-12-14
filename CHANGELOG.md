@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 202
+- chore: Gradle update
+- chore: dependency updates
+
 ## [0.4.0] - 2023-07-21
 - decided not to use OpenTorah here;
 - chore: Gradle update
