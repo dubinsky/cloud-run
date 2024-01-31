@@ -3,7 +3,7 @@ plugins {
   id 'scala'
   id 'java-library'
   id 'signing'
-  id 'com.gradle.plugin-publish' version '1.2.0'
+  id 'com.gradle.plugin-publish' version '1.2.1'
 }
 
 description = 'Deploy Service to Google Cloud Run'
@@ -16,22 +16,22 @@ final String orgName = 'Podval Group'
 final String orgUrl = 'https://www.podval.org'
 
 dependencies {
-  implementation 'org.scala-lang:scala3-library_3:3.3.0'
+  implementation 'org.scala-lang:scala3-library_3:3.3.1'
 
   // Note: 1.19.0 brings in guava 32, for which JIB plugin 3.3.2 is not ready - but 3.3.3 will be
-  implementation 'com.google.auth:google-auth-library-oauth2-http:1.18.0'
+  implementation 'com.google.auth:google-auth-library-oauth2-http:1.22.0'
   // by default, -android version gets dragged in and breaks JIB - I get java.lang.NoSuchMethodError
   //   com.google.common.collect.ImmutableList.toImmutableList()Ljava/util/stream/Collector;
   //  implementation 'com.google.guava:guava:31.1-jre'
 
-  implementation 'com.google.api-client:google-api-client:2.2.0'
+  implementation 'com.google.api-client:google-api-client:2.3.0'
 
   // see https://cloud.google.com/run/docs/reference/about-apis -
   // I am making API calls, but I rely on Kubernetes compatibility, so I am staying with v1.
-  implementation 'com.google.apis:google-api-services-run:v1-rev20230611-2.0.0'
+  implementation 'com.google.apis:google-api-services-run:v1-rev20240128-2.0.0'
 
-  implementation 'org.slf4j:slf4j-api:2.0.7'
-  implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.15.2'
+  implementation 'org.slf4j:slf4j-api:2.0.11'
+  implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.16.1'
 
   compileOnly    'gradle.plugin.com.google.cloud.tools:jib-gradle-plugin:3.2.1'
 }
