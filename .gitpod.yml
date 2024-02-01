@@ -1,6 +1,8 @@
 #image: gitpod/workspace-java-17
 jetbrains:
-  plugins:
-    - "org.intellij.scala"
+  intellij:
+    plugins:
+      - "org.intellij.scala"
+    vmoptions: '-Xmx6g'
 tasks:
   - init: ./gradlew build
