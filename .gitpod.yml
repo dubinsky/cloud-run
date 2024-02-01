@@ -1,5 +1,6 @@
-image: gitpod/workspace-java-17
+#image: gitpod/workspace-java-17
+jetbrains:
+  plugins:
+    - "org.intellij.scala"
 tasks:
   - init: ./gradlew build
-
-
