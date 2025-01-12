@@ -6,9 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.1] - 202
+## [0.4.1] - 2025-01-16
 - chore: Gradle update
+- chore: Scala update
+- chore: JIB Gradle plugin update
 - chore: dependency updates
+- fix: do not call Project.afterEvaluate() from Task
 
 ## [0.4.0] - 2023-07-21
 - decided not to use OpenTorah here;

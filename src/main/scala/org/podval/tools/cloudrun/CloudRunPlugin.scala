@@ -3,7 +3,7 @@ package org.podval.tools.cloudrun
 import org.gradle.api.provider.{ListProperty, Property}
 import org.gradle.api.tasks.{Input, TaskAction}
 import org.gradle.api.{DefaultTask, Plugin, Project}
-import org.gradle.process.ExecSpec
+import org.gradle.process.{ExecOperations, ExecSpec}
 import scala.jdk.CollectionConverters.{ListHasAsScala, SeqHasAsJava}
 import javax.inject.Inject
 
@@ -26,10 +26,10 @@ final class CloudRunPlugin extends Plugin[Project]:
       )
     }
 
-    project.getTasks.create("cloudRunDeploy"          , classOf[CloudRunPlugin.DeployTask          ])
-    project.getTasks.create("cloudRunLocal"           , classOf[CloudRunPlugin.RunLocalTask        ])
-    project.getTasks.create("cloudRunDescribe"        , classOf[CloudRunPlugin.DescribeTask        ])
-    project.getTasks.create("cloudRunDescribeRevision", classOf[CloudRunPlugin.DescribeRevisionTask])
+    project.getTasks.register("cloudRunDeploy"          , classOf[CloudRunPlugin.DeployTask          ])
+    project.getTasks.register("cloudRunLocal"           , classOf[CloudRunPlugin.RunLocalTask        ])
+    project.getTasks.register("cloudRunDescribe"        , classOf[CloudRunPlugin.DescribeTask        ])
+    project.getTasks.register("cloudRunDescribeRevision", classOf[CloudRunPlugin.DescribeRevisionTask])
 
 object CloudRunPlugin:
   class DeployTask extends DefaultTask:
@@ -38,7 +38,7 @@ object CloudRunPlugin:
     Jib.dependsOn(this, Jib.remote)
     @TaskAction final def execute(): Unit = getCloudRun(this).deploy()
 
-  class RunLocalTask extends DefaultTask:
+  class RunLocalTask @Inject(execOperations: ExecOperations) extends DefaultTask:
     setDescription("Run Cloud Run service in the local Docker")
     setGroup("publishing")
     Jib.dependsOn(this, Jib.localDocker)
@@ -48,7 +48,7 @@ object CloudRunPlugin:
     @TaskAction final def execute(): Unit =
       val commandLine: Seq[String] = getExtension(this).service.localDockerCommandLine(additionalOptions.get.asScala.toSeq)
       getLogger.lifecycle(s"Running: ${commandLine.mkString(" ")}")
-      getProject.exec((execSpec: ExecSpec) => execSpec.setCommandLine(commandLine.asJava))
+      execOperations.exec((execSpec: ExecSpec) => execSpec.setCommandLine(commandLine.asJava))
 
   class DescribeTask extends DefaultTask:
     setDescription("Get the Service YAML from Google Cloud Run")

@@ -3,7 +3,7 @@ plugins {
   id 'scala'
   id 'java-library'
   id 'signing'
-  id 'com.gradle.plugin-publish' version '1.2.1'
+  id 'com.gradle.plugin-publish' version '1.3.0'
 }
 
 description = 'Deploy Service to Google Cloud Run'
@@ -16,25 +16,24 @@ final String orgName = 'Podval Group'
 final String orgUrl = 'https://www.podval.org'
 
 dependencies {
-  implementation 'org.scala-lang:scala3-library_3:3.3.1'
-
-  // Note: 1.19.0 brings in guava 32, for which JIB plugin 3.3.2 is not ready - but 3.3.3 will be
-  implementation 'com.google.auth:google-auth-library-oauth2-http:1.22.0'
-  // by default, -android version gets dragged in and breaks JIB - I get java.lang.NoSuchMethodError
-  //   com.google.common.collect.ImmutableList.toImmutableList()Ljava/util/stream/Collector;
-  //  implementation 'com.google.guava:guava:31.1-jre'
-
-  implementation 'com.google.api-client:google-api-client:2.3.0'
+  implementation 'org.scala-lang:scala3-library_3:3.6.3'
+  implementation 'com.google.auth:google-auth-library-oauth2-http:1.30.1'
+  implementation 'com.google.api-client:google-api-client:2.7.1'
+  implementation 'org.slf4j:slf4j-api:2.0.16'
+  implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.18.2'
 
   // see https://cloud.google.com/run/docs/reference/about-apis -
   // I am making API calls, but I rely on Kubernetes compatibility, so I am staying with v1.
-  implementation 'com.google.apis:google-api-services-run:v1-rev20240128-2.0.0'
+  implementation 'com.google.apis:google-api-services-run:v1-rev20241004-2.0.0'
 
-  implementation 'org.slf4j:slf4j-api:2.0.11'
-  implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.16.1'
-
-  compileOnly    'gradle.plugin.com.google.cloud.tools:jib-gradle-plugin:3.2.1'
+  // JIB Gradle plugin versions after 3.2.1 are available as Maven artifacts only
+  // - in the Gradle Plugin Portal Maven repository and
+  // - without the `gradle.plugin.` prefix on the group
+  // (see https://github.com/GoogleContainerTools/jib/blob/master/jib-gradle-plugin/build.gradle#L10):
+  compileOnly    'com.google.cloud.tools:jib-gradle-plugin:3.4.4'
 }
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 tasks.withType(ScalaCompile).configureEach {
   scalaCompileOptions.with {
@@ -162,12 +161,12 @@ gradlePlugin {
 }
 
 tasks.register('uploadLibrary')
-uploadLibrary.description('Upload artifacts')
-uploadLibrary.group('publishing')
+uploadLibrary.description = 'Upload artifacts'
+uploadLibrary.group = 'publishing'
 uploadLibrary.dependsOn(publishLibraryPublicationToMavenCentralRepository)
 
 tasks.register('upload')
-upload.description('Upload artifacts and plugins')
-upload.group('publishing')
+upload.description = 'Upload artifacts and plugins'
+upload.group = 'publishing'
 upload.dependsOn(uploadLibrary)
 upload.dependsOn(publishPlugins)

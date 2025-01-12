@@ -14,9 +14,8 @@ object Jib:
 
   private def get(project: Project): Option[JibExtension] = Option(project.getExtensions.findByType(classOf[JibExtension]))
 
-  def dependsOn(task: DefaultTask, jibTaskName: String): Unit = task.getProject.afterEvaluate((project: Project) =>
-    if get(project).isDefined then task.dependsOn(project.getTasks.getByPath(jibTaskName))
-  )
+  def dependsOn(task: DefaultTask, jibTaskName: String): Unit =
+    if get(task.getProject).isDefined then task.dependsOn(task.getProject.getTasks.getByPath(jibTaskName))
 
   def configure(
     project: Project,
