@@ -6,11 +6,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2025-12-22
+- chore: Gradle update
+- chore: JIB Gradle plugin update
+- chore: dependency updates
+
+## [0.4.2] - 2025-11-10
+- chore: Gradle update
+- chore: Scala update
+- chore: JIB Gradle plugin update
+- chore: dependency updates
+- chore: Maven Central publishing update;
+
 ## [0.4.1] - 2025-01-16
 - chore: Gradle update
 - chore: Scala update
 - chore: JIB Gradle plugin update
 - chore: dependency updates
+- chore: Java 21
 - fix: do not call Project.afterEvaluate() from Task
 
 ## [0.4.0] - 2023-07-21
