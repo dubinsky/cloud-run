@@ -1,5 +1,12 @@
 {
-  "image": "mcr.microsoft.com/devcontainers/java:21",
+  "image": "mcr.microsoft.com/devcontainers/java:3.0.0-21",
+  "features": {
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "none",
+      "installGradle": "true",
+      "installMaven": "false"
+    }
+  },
   "customizations" : {
     "jetbrains" : {
       "backend": "IntelliJ",
