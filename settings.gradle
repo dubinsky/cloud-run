@@ -1,8 +1,24 @@
+pluginManagement {
+  repositories {
+    mavenCentral()
+    gradlePluginPortal()
+  }
+  // String path: a File would call Settings.includeBuild (not a plugin build).
+  final String conventionsDir =
+    providers.gradleProperty('podvalGradleDir').getOrElse('../podval-gradle')
+  if (file(conventionsDir).isDirectory() && file("${conventionsDir}/settings.gradle").isFile()) {
+    includeBuild conventionsDir
+  }
+}
+
+plugins {
+  id 'org.podval.conventions.settings'
+}
+
 rootProject.name = 'org.podval.tools.cloudrun'
 
 dependencyResolutionManagement {
   repositories {
-    mavenCentral()
     gradlePluginPortal() // for JIB
   }
 }

@@ -1,3 +1,11 @@
+## Archived
+
+Nobody but me ever used this plugin.
+I only used is in OpenTorah's "Collector" to deploy dynamic `www.alter-rebbe.org`.
+With that site going static (using [Podval Site Publisher](https://github.com/dubinsky/site-publisher),
+there are no users for it ;)
+Archiving.
+
 ## Introduction ##
 
 Gradle plugin to deploy a service described in a [knative](https://knative.dev/)
